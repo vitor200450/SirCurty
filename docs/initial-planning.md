@@ -115,7 +115,7 @@
 - **Redirect/fluxo de acesso:** Interstitial obrigatório para o diferencial “aviso de destino”. Portanto a rota `/s/:code` deve ser resolvida pelo **frontend** (Nginx `try_files $uri /index.html` garante fallback da SPA), que chama a API (`GET /api/links/:code/preview`) para obter destino/flags e só então redireciona (`window.location`). A API mantém também um redirect rápido (`/api/redirect/:code` ou `/s/:code?fast=1`) para casos sem JS e para testes/métricas. Isso preserva traces de browser + API.
 - **Otimização sob carga (múltiplos acessos simultâneos):** aplicar um **temporizador/janela de agregação** para reduzir escrita por clique: cache de mapeamento curto→URL (in-memory/Redis com TTL curto, ex.: 30–120s); **batch insert de cliques** (buffer por N segundos ou M eventos) em vez de 1 INSERT por request; contador agregado por link em janelas de tempo; rate limit/token bucket por IP e por código; cabeçalhos de cache curtos (`Cache-Control: max-age=...`) apenas se aceitável stale; backpressure (fila) e degradação graciosa (registrar clique de forma assíncrona, sem bloquear o 302). O interstitial pode usar um pequeno temporizador (ex.: 1–2s) para UX + coleta de metadados antes do redirect.
 
-### 6.5 Kubernetes (Rancher Desktop/minikube)
+### 6.5 Kubernetes (Docker Desktop)
 - **Workloads:**
   - `Deployment/frontend` (Nginx + build do Vite)
   - `Deployment/api` (Nest, 2+ réplicas se possível)
@@ -216,7 +216,7 @@ Fonte: `Hackathon · Encurtador de Links Cloud-Native.pdf` (7 páginas).
 | Frontend criar/listar links | ✅ previsto | Resolvido: React + Vite (TS). |
 | API encurtar + redirect | ✅ previsto | Resolvido: NestJS (TS). |
 | Banco mapeando short → URL | ✅ previsto | PostgreSQL. |
-| Três componentes rodando em Kubernetes | ⚠️ parcial | Cluster Rancher/minikube; falta manifests. |
+| Três componentes rodando em Kubernetes | ⚠️ parcial | Cluster Docker Desktop (Kubernetes habilitado); falta manifests. |
 | K8s: Deployments, Services, ConfigMap/Secret, probes | ⚠️ parcial | Cite probes/ConfigMap/Secret explicitamente; hoje só genérico. |
 | GitHub Actions: build, teste e push de imagem | ⚠️ parcial | Adicionar etapa de testes automatizados. |
 | ArgoCD: GitOps, repo como fonte da verdade | ✅ previsto | Falta estrutura gitops (k8s/overlays, argocd app). |

@@ -88,5 +88,5 @@ postgres (driver/SDK?) ─┘                           │
 ## Observações
 
 - Sem Loki, use `kubectl logs` no pitch (aceitável).
-- Se o cluster for limitado (minikube), prefira **Tempo + Grafana + collector** (sem Prometheus/Loki) para reduzir consumo.
+- Se o cluster for limitado (Docker Desktop Kubernetes), prefira **Tempo + Grafana + collector** (sem Prometheus/Loki) para reduzir consumo.
 - Fora do escopo inicial: alerting, SLOs formais, tracing de jobs assíncronos.
