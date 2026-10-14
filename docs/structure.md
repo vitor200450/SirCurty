@@ -117,7 +117,7 @@ k8s/
 
 ```text
 docs/
-  planejamento-inicial.md   # visão geral + decisões
+  initial-planning.md   # visão geral + decisões
   structure.md             # esta estrutura
   architecture.md           # desenho de arquitetura (opcional)
   observability.md          # OTel + Grafana in-cluster

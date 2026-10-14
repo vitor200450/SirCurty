@@ -169,7 +169,7 @@ SirCurty/
   .github/workflows/
     ci.yml, cd.yml
   docs/
-    planejamento-inicial.md, pitch.md, ai-usage.md, architecture.md
+    initial-planning.md, pitch.md, ai-usage.md, architecture.md
   scripts/
     seed.ts, generate-clicks.sh
 ```

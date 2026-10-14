@@ -1,6 +1,6 @@
 # Brainstorm de funcionalidades exclusivas — Sir Curty
 
-Base: seção 3 do `docs/planejamento-inicial.md` + pesquisa em encurtadores modernos
+Base: seção 3 do `docs/initial-planning.md` + pesquisa em encurtadores modernos
 (Bitly, Rebrandly, Short.io, Linkly, Dub, Linkora, Cutt.ly, Sniply/UpContent, Shlink/Kutt/Polr).
 
 ## 1) Funcionalidades já listadas (detalhadas)

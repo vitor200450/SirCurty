@@ -57,4 +57,4 @@ Guia para agentes de IA (Kiro, Copilot, ChatGPT, etc.) atuarem de forma consiste
 - Manter o `.gitignore` protegendo o PDF.
 - Atualizar docs quando mudar arquitetura/decisões.
 - Preferir pequenos commits focados.
-- Em caso de dúvida sobre responsabilidades, consultar `docs/planejamento-inicial.md`.
+- Em caso de dúvida sobre responsabilidades, consultar `docs/initial-planning.md`.
