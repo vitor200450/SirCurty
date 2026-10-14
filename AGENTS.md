@@ -30,7 +30,7 @@ Guia para agentes de IA (Kiro, Copilot, ChatGPT, etc.) atuarem de forma consiste
 ## Convenções
 
 - TypeScript strict em tudo.
-- Código e commits em **inglês** para mensagens de commit; documentação em **português** (decisão do squad).
+- Padrão geral: tudo em **inglês** (código, commits, nomes de arquivos, branches, manifests). A documentação permanece em **português temporariamente** (decisão do squad), mas deve migrar para inglês quando possível.
 - Commits: `type: lowercase imperative description` (ex.: `feat: add link preview endpoint`), sem attribution de AI.
 - Não committar: PDF do desafio, segredos, `.env`, dumps.
 - Segredos sempre via `Secret`/GitHub Secrets, nunca no repo.
