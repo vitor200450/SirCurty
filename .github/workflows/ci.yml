@@ -1,0 +1,8 @@
+# CI/CD (placeholder)
+
+# Pipeline a ser implementado com GitHub Actions:
+# - checkout
+# - testes
+# - build das imagens frontend/api
+# - push para registry
+# - atualização de manifests / trigger ArgoCD

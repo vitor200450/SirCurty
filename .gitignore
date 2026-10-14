@@ -1,3 +1,7 @@
 .vscode/
 .DS_Store
 Thumbs.db
+
+# PDF do desafio (não versionar)
+Hackathon*.pdf
+*.pdf
