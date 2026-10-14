@@ -65,8 +65,9 @@
 - **App:** SPA com React Router; rotas principais: `/` (criar/listar links), `/s/:code` (interstitial/redirecionamento gerenciado pela API), `/dashboard` (estatísticas), `/login` (opcional).
 - **UI/tema:** tema medieval moderno (Tailwind + shadcn/ui ou CSS modules), animações leves (Framer Motion), identidade Sir Curty (mascote SVG/Lottie), cópias amigáveis.
 - **Estado/dados:** React Query (TanStack) para listagens/mutações; Zustand ou Context para usuário/tema; validação de forms com Zod + React Hook Form.
-- **Integrações:** API via `VITE_API_URL`; Google Identity Services (opcional); gerador de QR Code local (`qrcode`); Web OpenTelemetry exporter (OTLP/HTTP) para traces do browser.
-- **Build/deploy:** `npm ci` + `npm run build` (Vite) → imagem Nginx servindo `dist/`; ConfigMap para variáveis não secretas.
+- **Integrações:** API via configuração de runtime (`window.__APP_CONFIG__.API_URL`, fallback para `VITE_API_URL` baked); Google Identity Services (opcional); gerador de QR Code local (`qrcode`); Web OpenTelemetry exporter (OTLP/HTTP) para traces do browser.
+- **Config no Vite (importante):** Vite só lê `VITE_*` no **build**. Para permitsir ConfigMap em runtime, o frontend carrega `/env-config.js` gerado no startup do pod pelo entrypoint do Nginx (a partir do ConfigMap), com fallback para valores baked. Assim o mesmo build funciona em diferentes ambientes sem rebuild.
+- **Build/deploy:** `npm ci` + `npm run build` (Vite) → imagem Nginx servindo `dist/` + script de entrypoint gerando `env-config.js` a partir do ConfigMap.
 - **Observabilidade no browser:** span por criação de link e por clique no botão; propagar `traceparent` para a API.
 
 ### 6.2 API/backend (NestJS + TypeScript)
@@ -112,7 +113,7 @@
   - Filtrar palavras reservadas/profanas no alfabeto/decodificação (sqids suporta) e bloquear vanity conflitantes.
 - **Expiração/uso único:** validações no redirect: `status=ACTIVE`, `expires_at > now`, `!single_use || used_at IS NULL`; marcar `used_at` dentro de transação (para uso único) antes do 302.
 - **Redirect/fluxo de acesso:** Interstitial obrigatório para o diferencial “aviso de destino”. Portanto a rota `/s/:code` deve ser resolvida pelo **frontend** (Nginx `try_files $uri /index.html` garante fallback da SPA), que chama a API (`GET /api/links/:code/preview`) para obter destino/flags e só então redireciona (`window.location`). A API mantém também um redirect rápido (`/api/redirect/:code` ou `/s/:code?fast=1`) para casos sem JS e para testes/métricas. Isso preserva traces de browser + API.
-- **Cache (opcional):** cache em memória/Redis para códigos quentes (não necessário inicialmente).
+- **Otimização sob carga (múltiplos acessos simultâneos):** aplicar um **temporizador/janela de agregação** para reduzir escrita por clique: cache de mapeamento curto→URL (in-memory/Redis com TTL curto, ex.: 30–120s); **batch insert de cliques** (buffer por N segundos ou M eventos) em vez de 1 INSERT por request; contador agregado por link em janelas de tempo; rate limit/token bucket por IP e por código; cabeçalhos de cache curtos (`Cache-Control: max-age=...`) apenas se aceitável stale; backpressure (fila) e degradação graciosa (registrar clique de forma assíncrona, sem bloquear o 302). O interstitial pode usar um pequeno temporizador (ex.: 1–2s) para UX + coleta de metadados antes do redirect.
 
 ### 6.5 Kubernetes (Rancher Desktop/minikube)
 - **Workloads:**
@@ -121,7 +122,7 @@
   - `StatefulSet/postgres` (1 réplica + PVC)
   - (Opcional) `Deployment/otel-collector`
 - **Networking:** `Service` ClusterIP para cada componente; `Ingress` (nginx) com host `sircurty.local`; rotas `/api/*` → API, `/s/*` → frontend (SPA, para interstitial), fallback `/*` → frontend (Nginx `try_files`). evita o ingress “engolir” o redirect antes do frontend.
-- **Config:** `ConfigMap` para `VITE_API_URL`, `NODE_ENV`, `APP_BASE_URL`; `Secret` para `DATABASE_URL`, `GOOGLE_CLIENT_SECRET`, `JWT/cookie secret`, `OTEL_ENDPOINT`.
+- **Config:** `ConfigMap` com chaves de runtime (`API_URL`, `APP_ENV`, `APP_BASE_URL`, `OTEL_ENDPOINT`) consumidas pelo entrypoint do frontend para gerar `env-config.js`; `Secret` para `DATABASE_URL`, `GOOGLE_CLIENT_SECRET`, `JWT/cookie secret`. (Vite vars baked permanecem como fallback.)
 - **Probes:** liveness/readiness em `/health/live` e `/health/ready`; startup probe opcional para API/Nest startup.
 - **Resources:** requests/limits CPU/memória para todos; HPA opcional (não necessário).
 - **Persistência:** PVC para Postgres; backups não automatizados no escopo inicial.

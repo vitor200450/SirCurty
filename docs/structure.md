@@ -31,6 +31,7 @@ frontend/
     assets/                 # imagens/mascote SVG/Lottie, ícones
     styles/                 # tokens, tema medieval, global CSS
   public/
+    env-config.js        # fallback opcional; versão runtime gerada no container
   e2e/                    # testes E2E (Playwright/Cypress) - opcional
   Dockerfile
   nginx.conf                # SPA (try_files $uri /index.html)
