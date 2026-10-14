@@ -33,7 +33,7 @@
   7. Opção de senha nos links
   8. Aviso para qual site o link encurtado está levando (tela antes de redirecionar)
   9. Filtro de palavras suspeitas para evitar encurtar links maliciosos
-- **Funcionalidade de destaque no pitch:** Painel dos links mais acessados com estatísticas + gerenciamento único de links.
+- **Brainstorm expandido:** `docs/features-brainstorm.md` (72 ideias: MVP + 11 quick wins + stretch); seção 3 permanece como núcleo, shortlist de priorização no brainstorm.- **Funcionalidade de destaque no pitch:** Painel dos links mais acessados com estatísticas + gerenciamento único de links.
 
 ## 4. Escopo inicial
 
