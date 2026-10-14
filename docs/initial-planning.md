@@ -33,13 +33,39 @@
   7. Opção de senha nos links
   8. Aviso para qual site o link encurtado está levando (tela antes de redirecionar)
   9. Filtro de palavras suspeitas para evitar encurtar links maliciosos
-- **Brainstorm expandido:** `docs/features-brainstorm.md` (72 ideias: MVP + 11 quick wins + stretch); seção 3 permanece como núcleo, shortlist de priorização no brainstorm.- **Funcionalidade de destaque no pitch:** Painel dos links mais acessados com estatísticas + gerenciamento único de links.
+- **Brainstorm expandido:** `docs/features-brainstorm.md` (72 ideias: MVP + 11 quick wins + stretch); seção 3 permanece como núcleo, shortlist de priorização no brainstorm.
+- **Funcionalidade de destaque no pitch:** Painel dos links mais acessados com estatísticas + gerenciamento único de links.
 
-## 4. Escopo inicial
+## 4. Escopo inicial (lockado com o squad)
 
-- **Funcionalidades essenciais:** Criar links curtos; redirecionar para destino original; listar e gerenciar links; persistir dados no banco.
-- **Extras prioritários:** Estatísticas de cliques, links personalizados, ranking.
-- **Fora do escopo inicial:** Recursos complexos e inviáveis.
+### MVP (must-have para entrega/pitch)
+- **Núcleo técnico:** Criar link curto; redirect por interstitial ("você está indo para X"); listar/editar/excluir links (cookie anônimo + Google opcional); persistir mapeamento no PostgreSQL.
+- **Segurança básica:** senha opcional, expiração (data/hora), uso único (consumo em transação), filtro de URLs suspeitas, rate limit básico, blocklist de domínios.
+- **Gestão/identidade:** vanity URLs (custom slug), QR Code (geração local + API), tabela de estatísticas gerais (total links, cliques, domínios, cliques/dia), ranking top links.
+- **Infra obrigatória:** Docker Desktop Kubernetes, Deployments/Services/ConfigMap/Secret/probes, GitHub Actions (test/build/push), ArgoCD GitOps, OTel traces FE→API→DB, Grafana dashboards core.
+
+### Should-have (Quick wins do pitch — 3 selecionados)
+- **A/B testing básico:** 2 variantes por link + split de tráfego + indicação de vencedor.
+- **Expiração/click cap:** link com prazo de validade e limite de cliques (feitiço temporário).
+- **OG preview no interstitial:** título/descrição/imagem do destino na tela de aviso.
+
+### Could-have (stretch, se sobrar tempo)
+- UTM builder, geo/device targeting, OG preview caching, click caps refinados, badges/conquistas, 404/estados temáticos, bio link "reino".
+
+### Fora do escopo inicial
+- Billing/planos, multi-tenant complexo, compliance enterprise (HIPAA/SOC2), integrações third-party complexas (retargeting pixels, deep linking mobile, workspaces/roles completos, CTA overlay/Sniply).
+
+### Ordem de implementação (prioridade lockada)
+1. **Núcleo funcional (bloqueador):** schema Prisma (`User/Link/Click`), API Nest (create/list/edit/delete + redirect/preview), frontend mínimo (criar/listar), cookie anônimo, testes básicos, seed.
+2. **Segurança do link (must-have demo):** interstitial de destino, senha, expiração, uso único em transação, filtro de URL suspeita, rate limit/bloqueio por IP.
+3. **Gestão + identidade (valor de produto):** vanity URLs (slug único/reservado), QR Code (geração + download), ranking top links, stats gerais (cliques/link, totais, por dia).
+4. **Quick wins selecionados (pitch):** A/B básico (2 variantes + split + vencedor), click cap/expiração refinados, OG preview no interstitial.
+5. **Containerização + Kubernetes (infra obrigatória):** Dockerfiles (frontend multi-stage com Nginx + entrypoint; API), manifests base (Deployments, Services, ConfigMap/Secret, probes, Ingress), subir no Docker Desktop e validar resposta.
+6. **CI/CD (GitHub Actions):** lint/test/build/push (GHCR/Docker Hub) + atualização de tag nos manifests (GitOps trigger).
+7. **GitOps (ArgoCD):** Application com auto-sync/prune/self-heal para `k8s/`, sync DB→API.
+8. **Observabilidade core:** OTel SDK (browser + Nest + pg) → collector → Tempo; Grafana com dashboards (visão geral, links, traces) e interstitial traces.
+9. **Personalidade & UX (Sir Curty):** tema medieval, animações (corte/escudo), estados (vazio/sucesso/erro), 404 temática, badges simples.
+10. **Demo readiness:** script de geração de cliques, roteiro `docs/pitch.md`, ensaio do trace em tempo real, log de IA (`docs/ai-usage.md`) atualizado.
 
 ## 5. Experiência e funcionamento
 
@@ -181,12 +207,22 @@ SirCurty/
 ## 7. Organização da equipe
 
 - **Integrantes:** Alerandro, Eriky, José Vitor e Matheus
-- **Responsabilidades (proposta):**
-  - **José Vitor** — Frontend (React + Vite) e identidade visual (personagem/animações).
-  - **Eriky** — API (NestJS), banco (PostgreSQL) e features exclusivas (QR, senha, vanity, filtros).
-  - **Alerandro** — Kubernetes, CI/CD (GitHub Actions), GitOps (ArgoCD) e coordenação/integração geral.
-  - **Matheus** — Observabilidade (OpenTelemetry + Grafana) e métricas/traces de demo.
-- *Observação:* Uma pessoa pode assumir mais de uma responsabilidade (ex.: Jose Vitor também apoia UX; Alerandro apoia releases).
+- **Responsabilidades (em aberto — campos vazios para preenchimento pelo squad):**
+  | Área | Responsável | Apoio (opcional) |
+  |---|---|---|
+  | Frontend (React + Vite) + identidade visual (Sir Curty, animações) + UX | Alerandro | Matheus |
+  | API (NestJS) + Prisma/PostgreSQL + validações | Eriky | __________ |
+  | Kubernetes (Docker Desktop) + CI/CD (GitHub Actions) + GitOps (ArgoCD) | José Vitor | __________ |
+  | Observabilidade (OpenTelemetry FE→API→DB + Grafana dashboards/traces) | Matheus | __________ |
+- **Quick wins candidatos (donos a definir):**
+  - A/B testing básico (2 variantes + split + vencedor): __________
+  - Expiração/click cap (feitiço temporário): __________
+  - OG preview no interstitial (título/descrição/imagem): __________
+- **Áreas compartilhadas (todos):**
+  - Pitch/demo ao vivo (cada um apresenta sua parte).
+  - `docs/ai-usage.md` (registrar prompts/decisões de IA).
+  - README e estrutura do repo.
+- *Observação:* Uma pessoa pode assumir mais de uma área; campos devem ser preenchidos pelo squad.
 
 ## 8. Estratégia de demonstração
 

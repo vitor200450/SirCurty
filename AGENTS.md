@@ -58,3 +58,4 @@ Guia para agentes de IA (Kiro, Copilot, ChatGPT, etc.) atuarem de forma consiste
 - Atualizar docs quando mudar arquitetura/decisões.
 - Preferir pequenos commits focados.
 - Em caso de dúvida sobre responsabilidades, consultar `docs/initial-planning.md`.
+- Seguir `docs/git-workflow.md` (GitFlow simplificado: main → develop → feature/*; sem release/hotfix) para branches e evitar conflitos.
