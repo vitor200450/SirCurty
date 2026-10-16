@@ -5,6 +5,7 @@ import {
   GoneException,
   Injectable,
   Logger,
+  NotImplementedException,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -126,17 +127,19 @@ export class LinksService {
     dto: CreateLinkDto,
     ownerAnonId: string,
   ): Promise<CreateLinkResponseDto> {
-    const slug = await this.resolveSlug(dto.customSlug);
 
-    // ⚠️ Phase limitation: password hashing not yet implemented.
-    // The `password` field is accepted by the DTO but not persisted until
-    // the security phase introduces a hashing library.
-    // Do NOT store passwords in plain text — field is intentionally ignored.
-    if (dto.password) {
-      this.logger.warn(
-        'Password field received but not persisted (hashing not yet implemented)',
+    // Password-protected links are not yet supported: hashing (bcrypt/argon2)
+    // has not been introduced. Reject the request explicitly so the caller is
+    // never misled into believing the link is protected.
+    // This guard must be removed once the security phase is implemented.
+
+    if (dto.password !== undefined) {
+      throw new NotImplementedException(
+        'Password-protected links are not yet supported. Create the link without a password.',
       );
     }
+
+    const slug = await this.resolveSlug(dto.customSlug);
 
     const link = await this.prisma.link.create({
       data: {
@@ -146,7 +149,6 @@ export class LinksService {
         isSingleUse: dto.singleUse ?? false,
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
         status: LinkStatus.ACTIVE,
-        // passwordHash intentionally null — security phase pending
       },
     });
 

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  NotImplementedException,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -76,7 +77,7 @@ function makeService(prismaOverrides: Record<string, unknown> = {}) {
 // ── create ──────────────────────────────────────────────────────────────────
 
 describe('LinksService.create', () => {
-  it('creates a link with auto-generated slug and returns code/shortUrl/qr', async () => {
+  it('creates a link with auto-generated slug and returns code and shortUrl', async () => {
     const { service, prisma } = makeService();
     const link = makeLink();
     prisma.link.findUnique.mockResolvedValue(null);   // no collision
@@ -178,17 +179,62 @@ describe('LinksService.create', () => {
     );
   });
 
-  it('does NOT persist passwordHash (security phase pending)', async () => {
-    const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(null);
-    prisma.link.create.mockResolvedValue(makeLink());
-
+  it('rejects a request that includes a password with 501 Not Implemented', async () => {
+    const { service } = makeService();
     const dto = { url: 'https://example.com', password: 'secret' } as CreateLinkDto;
-    await service.create(dto, OWNER);
 
-    const callData = prisma.link.create.mock.calls[0][0].data;
-    expect(callData).not.toHaveProperty('passwordHash', 'secret');
-    expect(callData.passwordHash).toBeUndefined();
+    await expect(service.create(dto, OWNER)).rejects.toThrow(NotImplementedException);
+  });
+
+  it('rejects a password request before any Prisma call', async () => {
+    const { service, prisma } = makeService();
+    const dto = {
+      url: 'https://example.com',
+      password: 'secret',
+    } as CreateLinkDto;
+
+    await expect(service.create(dto, OWNER)).rejects.toThrow(
+      NotImplementedException,
+    );
+
+    expect(prisma.link.findUnique).not.toHaveBeenCalled();
+    expect(prisma.link.create).not.toHaveBeenCalled();
+  });
+
+  it('error response for a password request does not expose the password value', async () => {
+    const { service } = makeService();
+    const dto = { url: 'https://example.com', password: 'top-secret-value' } as CreateLinkDto;
+
+    let caughtError: unknown;
+    try {
+      await service.create(dto, OWNER);
+    } catch (err) {
+      caughtError = err;
+    }
+
+    expect(caughtError).toBeInstanceOf(NotImplementedException);
+    const error = caughtError as NotImplementedException;
+    const response = error.getResponse();
+    const serialised = JSON.stringify(response);
+    expect(serialised).not.toContain('top-secret-value');
+  });
+
+  it('creates a link without a password without errors (password omitted)', async () => {
+    const { service, prisma } = makeService();
+    const link = makeLink();
+    prisma.link.findUnique.mockResolvedValue(null);
+    prisma.link.create.mockResolvedValue(link);
+
+    const dto: CreateLinkDto = { url: 'https://example.com' } as CreateLinkDto;
+    const result = await service.create(dto, OWNER);
+
+    expect(result.code).toBe(link.slug);
+    expect(result.shortUrl).toBe(`${BASE_URL}/s/${link.slug}`);
+    expect(prisma.link.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ passwordHash: expect.anything() }),
+      }),
+    );
   });
 });
 
