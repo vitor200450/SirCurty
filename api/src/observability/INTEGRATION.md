@@ -1,4 +1,4 @@
-# Integração OTel na API — Guia rápido (para o Eriky)
+# Integração OTel na API — Guia rápido
 
 ## 1. Instalar as dependências
 

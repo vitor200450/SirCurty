@@ -1,4 +1,4 @@
-# Integração OTel no Frontend — Guia rápido (para o Alerandro)
+# Integração OTel no Frontend — Guia rápido
 
 ## 1. Instalar as dependências
 
