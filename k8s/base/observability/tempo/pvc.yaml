@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-data
+  namespace: observability
+  labels:
+    app: tempo
+    app.kubernetes.io/part-of: sircurty-observability
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi          # sufficient for 48h retention at hackathon load

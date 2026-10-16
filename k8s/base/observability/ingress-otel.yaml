@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: otel-collector
+  namespace: observability
+  labels:
+    app: otel-collector
+    app.kubernetes.io/part-of: sircurty-observability
+  annotations:
+    # Enable CORS so the browser SDK can POST traces directly to the collector
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "http://sircurty.local"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "POST, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type,traceparent,tracestate,baggage"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+    # OTLP/HTTP uses binary protobuf — disable body size limit
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: otel.sircurty.local
+      http:
+        paths:
+          # OTLP/HTTP endpoint used by the browser SDK
+          - path: /v1/traces
+            pathType: Prefix
+            backend:
+              service:
+                name: otel-collector
+                port:
+                  number: 4318
