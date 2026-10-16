@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotImplementedException,
   NotFoundException,
+  GoneException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LinkStatus } from '../../generated/prisma/client.js';
@@ -56,6 +57,7 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     ...overrides,
   };
@@ -235,6 +237,88 @@ describe('LinksService.create', () => {
         data: expect.not.objectContaining({ passwordHash: expect.anything() }),
       }),
     );
+  });
+});
+
+// ── findRedirectTarget ─────────────────────────────────────────────────────────────────
+
+describe('LinksService.getRedirectTarget', () => {
+  it('returns the URL for a regular link without consuming it', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(makeLink());
+
+    await expect(service.getRedirectTarget('abc123def456'))
+      .resolves.toBe('https://example.com');
+
+    expect(prisma.link.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('consumes a single-use link atomically', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ isSingleUse: true }),
+    );
+    prisma.link.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(service.getRedirectTarget('abc123def456'))
+      .resolves.toBe('https://example.com');
+
+    expect(prisma.link.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 1,
+          isSingleUse: true,
+          usedAt: null,
+          status: LinkStatus.ACTIVE,
+        }),
+        data: expect.objectContaining({
+          usedAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it('rejects a previously consumed single-use link', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ isSingleUse: true, usedAt: new Date() }),
+    );
+
+    prisma.link.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.getRedirectTarget('abc123def456'))
+      .rejects.toThrow(GoneException);
+  });
+
+  it('rejects when another request consumes the link first', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ isSingleUse: true }),
+    );
+
+    prisma.link.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    const results = await Promise.allSettled([
+      service.getRedirectTarget('abc123def456'),
+      service.getRedirectTarget('abc123def456'),
+    ]);
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+    expect(prisma.link.updateMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a single-use link that expires before atomic consumption', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ isSingleUse: true }),
+    );
+    prisma.link.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.getRedirectTarget('abc123def456'))
+      .rejects.toThrow(GoneException);
   });
 });
 

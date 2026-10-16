@@ -72,13 +72,15 @@ export class LinksService {
   /**
    * Returns the validated redirect target URL for GET /s/:code.
    *
-   * Validates existence, status, expiry and protocol. Password-protected
-   * links are blocked here — the frontend must call verify-password first
-   * (security phase). Single-use consumption is intentionally deferred to
-   * the security phase where it can be done atomically in a transaction.
+   * Validates existence, status, expiry and protocol.
+   * Password-protected links are blocked until password verification
+   * is implemented.
+   * Single-use links are consumed atomically using a conditional update,
+   * preventing multiple successful consumptions under concurrent requests.
    *
    * Returns the originalUrl on success. Throws on any validation failure.
    */
+
   async getRedirectTarget(code: string): Promise<string> {
     const link = await this.prisma.link.findUnique({ where: { slug: code } });
 
@@ -90,32 +92,46 @@ export class LinksService {
       throw new GoneException('This link has been disabled');
     }
 
-    if (link.expiresAt && link.expiresAt < new Date()) {
+    if (link.expiresAt && link.expiresAt <= new Date()) {
       throw new GoneException('This link has expired');
     }
 
-    // Block password-protected links until verify-password is implemented.
-    // Return 403 so the frontend knows to prompt for a password rather than
-    // showing a generic error.
     if (link.passwordHash !== null) {
       throw new ForbiddenException('This link requires a password');
     }
 
-    // Validate the stored URL protocol — defence against corrupted data.
     const url = link.originalUrl;
+
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       this.logger.error(`Link ${code} has an invalid stored URL protocol`);
       throw new BadRequestException('Link destination is not a valid URL');
     }
 
-    // ⚠️ Phase limitation: single-use consumption is NOT implemented here.
-    // Marking usedAt requires an atomic read-then-update transaction to
-    // prevent race conditions under concurrent access.
-    // This will be implemented in the security phase.
     if (link.isSingleUse) {
-      this.logger.warn(
-        `Single-use link ${code} redirected without consumption — security phase pending`,
-      );
+      const now = new Date();
+
+      const result = await this.prisma.link.updateMany({
+        where: {
+          id: link.id,
+          isSingleUse: true,
+          usedAt: null,
+          status: LinkStatus.ACTIVE,
+          passwordHash: null,
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gt: now } },
+          ],
+        },
+        data: {
+          usedAt: now,
+        },
+      });
+
+      if (result.count !== 1) {
+        throw new GoneException(
+          'This single-use link has already been used or is no longer available',
+        );
+      }
     }
 
     return url;
