@@ -22,3 +22,7 @@ api/prisma/*.db-journal
 
 # Logs
 *.log
+
+# Local cookies and session data
+cookies.txt
+**/cookies.txt
