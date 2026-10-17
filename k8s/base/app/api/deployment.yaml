@@ -33,6 +33,24 @@ spec:
             limits:
               cpu: "50m"
               memory: "32Mi"
+        # Apply Prisma migrations with the same image; Prisma takes an advisory
+        # lock, so concurrent replicas are safe
+        - name: migrate
+          image: ghcr.io/vitor200450/sircurty-api:latest
+          command: ["npx", "prisma", "migrate", "deploy"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sircurty-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "384Mi"
       containers:
         - name: api
           # Tag is bumped by CI/CD through the kustomize `images` field in the overlay

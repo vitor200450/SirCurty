@@ -73,9 +73,15 @@ kustomize edit set image ghcr.io/vitor200450/sircurty-api=ghcr.io/vitor200450/si
 kustomize edit set image ghcr.io/vitor200450/sircurty-frontend=ghcr.io/vitor200450/sircurty-frontend:<sha>
 ```
 
+## CI/CD
+
+- `.github/workflows/ci.yml` (PR/push em `develop` e `main`): lint/test/build da API e do frontend, `kubectl kustomize` do overlay e build (sem push) dos Dockerfiles.
+- `.github/workflows/cd.yml` (push em `develop`): build e push das imagens para o GHCR (tag = SHA) e commit do bump de tag em `k8s/overlays/dev`; o ArgoCD detecta o commit e aplica.
+- O bump faz push direto em `develop`: se a branch ficar protegida, liberar o `github-actions[bot]`.
+- Migrations: o `initContainer` `migrate` da API roda `prisma migrate deploy` com a mesma imagem.
+
 ## Pendências
 
-- Dockerfiles de `api/` e `frontend/` (dependem do código das respectivas áreas).
-- Migrations Prisma (`prisma migrate deploy`) no deploy: Job/hook a definir com a API.
-- Manifests ainda não foram aplicados em um cluster real; validados apenas com `kustomize build`.
-- Confirmar com a API o prefixo global `/api` (health fica em `/health/*`, sem prefixo) e o GHCR (pull público ou `imagePullSecret`).
+- Os Dockerfiles e os workflows assumem `package-lock.json`, scripts `build`/`test`/`lint` e `prisma/` em `api/`; ainda não foram executados porque `api/` e `frontend/` não têm código.
+- Manifests e workflows validados apenas sintaticamente (`kustomize build`, parse do YAML); falta testar no cluster.
+- Confirmar com a API o prefixo global `/api` (health fica em `/health/*`, sem prefixo) e o GHCR (pacotes públicos ou `imagePullSecret`).
