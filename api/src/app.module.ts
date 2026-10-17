@@ -6,6 +6,7 @@ import { envValidationSchema } from './config/env.validation.js';
 import { PrismaModule } from './infrastructure/database/prisma.module.js';
 import { LinksModule } from './modules/links/links.module.js';
 import { AnonymousMiddleware } from './modules/auth/anonymous.middleware.js';
+import { HealthController } from './modules/health/health.controller.js';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { AnonymousMiddleware } from './modules/auth/anonymous.middleware.js';
     // Feature modules
     LinksModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, HealthController],
   providers: [AppService],
 })
 export class AppModule implements NestModule {

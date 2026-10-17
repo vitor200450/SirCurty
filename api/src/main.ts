@@ -19,6 +19,8 @@ async function bootstrap() {
   app.setGlobalPrefix('api', {
     exclude: [
       { path: 's/*', method: RequestMethod.GET },
+      { path: 'health/live', method: RequestMethod.GET },
+      { path: 'health/ready', method: RequestMethod.GET },
     ],
   });
 
