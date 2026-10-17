@@ -8,15 +8,15 @@ metadata:
 data:
   # Frontend runtime config (rendered into /env-config.js by docker-entrypoint.sh)
   API_URL: "/api"
-  APP_ENV: "dev"
-  APP_BASE_URL: "http://sircurty.local"
-  OTEL_ENDPOINT: "http://otel.sircurty.local"
+  APP_ENV: "{{ .Values.environment }}"
+  APP_BASE_URL: "http://{{ .Values.hosts.app }}"
+  OTEL_ENDPOINT: "http://{{ .Values.hosts.otel }}"
 
   # API runtime config
   NODE_ENV: "production"
   PORT: "3000"
   OTEL_SERVICE_NAME: "sircurty-api"
-  OTEL_DEPLOYMENT_ENV: "dev"
+  OTEL_DEPLOYMENT_ENV: "{{ .Values.environment }}"
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability.svc.cluster.local:4317"
 
   # Postgres (non-sensitive part; the password lives in the sircurty-secrets Secret)

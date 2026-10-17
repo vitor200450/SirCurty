@@ -6,7 +6,7 @@
 SirCurty/
   frontend/                 # React + Vite + TypeScript
   api/                      # NestJS + TypeScript + Prisma
-  k8s/                      # Manifests Kubernetes + Kustomize
+  k8s/                      # Chart Helm + ArgoCD Application
   .github/workflows/        # CI/CD GitHub Actions
   docs/                     # Planejamento, arquitetura, pitch, observabilidade, AI usage
   scripts/                  # Seed, geração de cliques, utilitários
@@ -82,33 +82,14 @@ api/
 
 ```text
 k8s/
-  base/
-    namespace.yaml
-    frontend/
-      deployment.yaml
-      service.yaml
-    api/
-      deployment.yaml
-      service.yaml
-    postgres/
-      statefulset.yaml
-      service.yaml
-      pvc.yaml
-    ingress/
-      ingress.yaml
-    config/
-      configmap.yaml
-      secret.example.yaml
-    observability/
-      namespace.yaml
-      otel-collector/
-      tempo/
-      grafana/
-      (prometheus/ loki opcionais)
-  overlays/
-    dev/
-      kustomization.yaml
-      patches/ (resources, ingress host, replicas)
+  charts/sircurty/
+    Chart.yaml
+    values.yaml           # tags de imagem, hosts, replicas
+    dashboards/           # JSON do Grafana
+    templates/
+      app/                # frontend, api, postgres, config, ingress
+      observability/      # otel-collector, tempo, grafana, ingresses
+  secret.example.yaml
   argocd/
     application.yaml
 ```
@@ -147,7 +128,7 @@ scripts/
 - **Separar por domínio/feature** no frontend (evita arquivos gigantes).
 - **Módulos Nest por bounded context** (links, clicks, auth, security, health).
 - **Infraestrutura isolada** em `infrastructure/` (DB/cache) e `config/`.
-- **K8s declarativo com Kustomize** (base + overlays) para facilitar GitOps.
+- **K8s declarativo com Helm** (chart + values) para facilitar GitOps.
 - **Observabilidade versionada** (dashboards JSON + manifests) no repositório.
 - **Scripts de demo** separados para não poluir código de produção.
 - **Docs centralizados** (decisões, pitch, uso de IA) para avaliação do hackathon.

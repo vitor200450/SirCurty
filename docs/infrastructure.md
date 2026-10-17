@@ -11,10 +11,10 @@ dev -> PR -> develop
               ├─ CI  (ci.yml)  lint + test + build + valida manifests + build dos Dockerfiles
               │
               └─ CD  (cd.yml)  build/push das imagens (GHCR, tag = SHA)
-                                └─ commit do bump de tag em k8s/overlays/dev
+                                └─ commit do bump de tag em k8s/charts/sircurty/values.yaml
                                       │
                                       ▼
-                              ArgoCD (observa `develop`, path k8s/overlays/dev)
+                              ArgoCD (observa `develop`, path k8s/charts/sircurty, renderiza o chart Helm)
                                       │  auto-sync / prune / self-heal
                                       ▼
                       Cluster Kubernetes (Docker Desktop)
@@ -27,9 +27,10 @@ cluster, muda-se o repositório (e o rollback é reverter o commit).
 
 ## 1. Kubernetes (`k8s/`)
 
-Os manifests usam Kustomize, com `base/` (comum) e `overlays/dev/` (ajustes do ambiente).
+Os manifests são um chart Helm (`k8s/charts/sircurty`): `templates/` com os recursos, `values.yaml`
+com o que varia (tags de imagem, hosts, réplicas, ambiente) e `dashboards/` com os JSON do Grafana.
 
-### Namespace `sircurty` (`k8s/base/app/`)
+### Namespace `sircurty` (`k8s/charts/sircurty/templates/app/`)
 
 | Componente | Tipo | Como funciona |
 |---|---|---|
@@ -37,22 +38,22 @@ Os manifests usam Kustomize, com `base/` (comum) e `overlays/dev/` (ajustes do a
 | `api` | Deployment + Service (3000) | Probes em `/health/live` e `/health/ready`. Dois initContainers: `wait-for-postgres` espera o banco e `migrate` roda `prisma migrate deploy`. |
 | `frontend` | Deployment + Service (80) | Nginx servindo o build do Vite. O `docker-entrypoint.sh` gera `/env-config.js` a partir de variáveis do ConfigMap (configuração em runtime, sem rebuild). |
 | `sircurty-config` | ConfigMap | Valores não sensíveis: `API_URL`, `APP_ENV`, `APP_BASE_URL`, `OTEL_ENDPOINT`, porta, nome do serviço OTel, banco e usuário do Postgres. |
-| `sircurty-secrets` | Secret | `POSTGRES_PASSWORD`, `DATABASE_URL`, `JWT_SECRET`. **Criado manualmente no cluster, nunca commitado** (`secret.example.yaml` é só referência e não entra no kustomization). |
+| `sircurty-secrets` | Secret | `POSTGRES_PASSWORD`, `DATABASE_URL`, `JWT_SECRET`. **Criado manualmente no cluster, nunca commitado** (`k8s/secret.example.yaml` é só referência e não faz parte do chart). |
 | `sircurty` | Ingress (nginx) | Host `sircurty.local`: `/api` vai para a API; `/` (inclusive `/s/:code`) vai para o frontend. O interstitial precisa ser resolvido pela SPA, então o ingress não manda `/s/*` para a API. |
 
 Todos os containers têm requests/limits de CPU e memória.
 
-### Namespace `observability` (`k8s/base/observability/`)
+### Namespace `observability` (`k8s/charts/sircurty/templates/observability/`)
 
-OTel Collector, Tempo e Grafana (dashboards versionados em JSON). É a parte do Matheus; o overlay
-apenas a inclui junto com o app. A API e o browser enviam traces ao Collector, que os guarda no
+OTel Collector, Tempo e Grafana (dashboards versionados em JSON). É a parte do Matheus; o chart
+apenas a inclui junto com o app (os dashboards entram via `.Files.Get`, e um checksum no Deployment reinicia o Grafana quando mudam). A API e o browser enviam traces ao Collector, que os guarda no
 Tempo; o Grafana lê o Tempo. Ver `docs/observability.md`.
 
-### Overlay `dev` (`k8s/overlays/dev/`)
+### Values (`k8s/charts/sircurty/values.yaml`)
 
-- Junta `base/observability` e `base/app`.
-- Define uma réplica por Deployment (economiza recursos no Docker Desktop).
-- Campo `images`: guarda a tag das imagens da API e do frontend. É esse campo que o CD altera.
+- Uma réplica por Deployment (economiza recursos no Docker Desktop).
+- `api.image.tag` e `frontend.image.tag`: são os campos que o CD altera.
+- `hosts.*` e `environment`: alimentam ingresses, ConfigMap e CORS.
 
 ### Rede e acesso local
 
@@ -68,7 +69,7 @@ Roda em PRs e pushes para `develop` e `main`. Jobs:
 
 1. **api**: `npm ci`, `prisma generate`, lint, testes e build.
 2. **frontend**: `npm ci`, lint, testes e build.
-3. **manifests**: `kubectl kustomize k8s/overlays/dev` (falha se algum manifest estiver quebrado).
+3. **manifests**: `helm lint` e `helm template` do chart (falha se algum template estiver quebrado).
 4. **docker**: builda as duas imagens sem publicar (depende de api e frontend), para pegar Dockerfile
    quebrado antes do merge.
 
@@ -80,7 +81,7 @@ Roda a cada push em `develop` (ignorando mudanças só em `k8s/`, `docs/` e `*.m
 
 1. **build-and-push**: builda API e frontend e publica no GHCR com duas tags: o SHA do commit e
    `latest`. O pod usa a tag com SHA, o que garante imagem imutável e rollback simples.
-2. **bump-manifests**: roda `kustomize edit set image` em `k8s/overlays/dev` com o novo SHA e faz
+2. **bump-manifests**: roda `yq -i` em `k8s/charts/sircurty/values.yaml` com o novo SHA e faz
    commit/push em `develop` (`chore: bump image tags to <sha>`).
 
 Esse commit não dispara o CD de novo por causa do `paths-ignore: k8s/**`. O push usa o
@@ -88,7 +89,7 @@ Esse commit não dispara o CD de novo por causa do `paths-ignore: k8s/**`. O pus
 
 ## 4. GitOps (ArgoCD, `k8s/argocd/application.yaml`)
 
-A `Application` `sircurty-dev` observa o branch `develop`, no path `k8s/overlays/dev`.
+A `Application` `sircurty-dev` observa o branch `develop`, no path `k8s/charts/sircurty` (source Helm, release `sircurty`).
 
 - **auto-sync**: aplica sozinho qualquer commit novo.
 - **prune**: remove do cluster o que foi removido do Git.
@@ -116,7 +117,7 @@ reaplica o estado anterior.
 4. Instalar o ArgoCD e aplicar `kubectl apply -f k8s/argocd/application.yaml`.
 5. Acompanhar o sync na UI do ArgoCD; abrir `http://sircurty.local` e `http://grafana.sircurty.local`.
 
-Sem ArgoCD (teste rápido): `kubectl apply -k k8s/overlays/dev`.
+Sem ArgoCD (teste rápido): `helm upgrade --install sircurty k8s/charts/sircurty --namespace default`.
 
 ## Roteiro para a demo
 

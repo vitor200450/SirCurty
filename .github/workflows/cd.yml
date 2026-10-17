@@ -1,7 +1,7 @@
 name: CD
 
 # ArgoCD tracks `develop` (k8s/argocd/application.yaml): every merge builds the
-# images, pushes them to GHCR and bumps the tags in the dev overlay (GitOps trigger).
+# images, pushes them to GHCR and bumps the tags in the Helm values (GitOps trigger).
 on:
   push:
     branches: [develop]
@@ -60,12 +60,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: develop
-      - name: Set image tags in the dev overlay
-        working-directory: k8s/overlays/dev
-        run: |
-          kustomize edit set image \
-            "${API_IMAGE}=${API_IMAGE}:${GITHUB_SHA}" \
-            "${FRONTEND_IMAGE}=${FRONTEND_IMAGE}:${GITHUB_SHA}"
+      - name: Set image tags in the Helm values
+        working-directory: k8s/charts/sircurty
+        run: yq -i '.api.image.tag = strenv(GITHUB_SHA) | .frontend.image.tag = strenv(GITHUB_SHA)' values.yaml
       - name: Commit and push
         run: |
           if git diff --quiet; then

@@ -9,7 +9,7 @@ metadata:
   annotations:
     # Enable CORS so the browser SDK can POST traces directly to the collector
     nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "http://sircurty.local"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "http://{{ .Values.hosts.app }}"
     nginx.ingress.kubernetes.io/cors-allow-methods: "POST, OPTIONS"
     nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type,traceparent,tracestate,baggage"
     nginx.ingress.kubernetes.io/cors-max-age: "86400"
@@ -18,9 +18,9 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
 spec:
-  ingressClassName: nginx
+  ingressClassName: {{ .Values.ingressClassName }}
   rules:
-    - host: otel.sircurty.local
+    - host: {{ .Values.hosts.otel }}
       http:
         paths:
           # OTLP/HTTP endpoint used by the browser SDK

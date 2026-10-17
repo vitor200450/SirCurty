@@ -8,9 +8,9 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "3"
 spec:
-  ingressClassName: nginx
+  ingressClassName: {{ .Values.ingressClassName }}
   rules:
-    - host: sircurty.local
+    - host: {{ .Values.hosts.app }}
       http:
         paths:
           # API (no rewrite: the API serves under the /api prefix)

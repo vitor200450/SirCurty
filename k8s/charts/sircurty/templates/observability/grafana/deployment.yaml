@@ -13,6 +13,8 @@ spec:
       app: grafana
   template:
     metadata:
+      annotations:
+        checksum/dashboards: {{ include (print $.Template.BasePath "/observability/grafana/configmap-dashboards.yaml") . | sha256sum }}
       labels:
         app: grafana
     spec:
@@ -43,7 +45,7 @@ spec:
             - name: GF_FEATURE_TOGGLES_ENABLE
               value: "traceqlEditor traceToMetrics"
             - name: GF_SERVER_ROOT_URL
-              value: "http://grafana.sircurty.local"
+              value: "http://{{ .Values.hosts.grafana }}"
           volumeMounts:
             - name: data
               mountPath: /var/lib/grafana

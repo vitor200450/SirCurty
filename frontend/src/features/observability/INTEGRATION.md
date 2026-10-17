@@ -113,7 +113,7 @@ VITE_APP_VERSION=dev
 O `OTEL_ENDPOINT` já é injetado automaticamente pelo `docker-entrypoint.sh`
 a partir do ConfigMap do K8s — **não precisa de nada extra no frontend**.
 
-O ConfigMap (`k8s/base/config/configmap.yaml`) deve ter:
+O ConfigMap (`k8s/charts/sircurty/templates/app/config/configmap.yaml`) deve ter:
 ```yaml
 OTEL_ENDPOINT: "http://otel.sircurty.local"
 ```

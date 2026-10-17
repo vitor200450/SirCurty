@@ -9,7 +9,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  replicas: 2
+  replicas: {{ .Values.api.replicas }}
   selector:
     matchLabels:
       app: api
@@ -36,8 +36,8 @@ spec:
         # Apply Prisma migrations with the same image; Prisma takes an advisory
         # lock, so concurrent replicas are safe
         - name: migrate
-          image: ghcr.io/vitor200450/sircurty-api:latest
-          command: ["npx", "prisma", "migrate", "deploy"]
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          command: ["npx", "prisma", "migrate", "deploy", "--config", "prisma7.config.ts"]
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -53,8 +53,8 @@ spec:
               memory: "384Mi"
       containers:
         - name: api
-          # Tag is bumped by CI/CD through the kustomize `images` field in the overlay
-          image: ghcr.io/vitor200450/sircurty-api:latest
+          # Tag is bumped by CI/CD in values.yaml (api.image.tag)
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

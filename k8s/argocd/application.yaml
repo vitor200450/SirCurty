@@ -13,11 +13,13 @@ spec:
   source:
     repoURL: https://github.com/vitor200450/SirCurty
     targetRevision: develop
-    path: k8s/overlays/dev
+    path: k8s/charts/sircurty
+    helm:
+      releaseName: sircurty
 
   destination:
     server: https://kubernetes.default.svc
-    # namespace is set per-resource via kustomize namespace field
+    # namespace is set per-resource in the chart templates
 
   syncPolicy:
     automated:

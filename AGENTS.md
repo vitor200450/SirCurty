@@ -14,7 +14,7 @@ Guia para agentes de IA (Kiro, Copilot, ChatGPT, etc.) atuarem de forma consiste
 - API: NestJS + TypeScript (`api/`)
 - ORM/migrações: Prisma (`api/prisma/`)
 - Banco: PostgreSQL
-- Infra: Kubernetes + Kustomize + GitHub Actions + ArgoCD
+- Infra: Kubernetes + Helm + GitHub Actions + ArgoCD
 - Observabilidade: OpenTelemetry (traces FE→API→DB) + Grafana (dashboards core)
 - Links curtos: ID autoincremental + scrambling (`sqids` ou multiplicação modular) + Base62, com vanity URLs
 
@@ -22,7 +22,7 @@ Guia para agentes de IA (Kiro, Copilot, ChatGPT, etc.) atuarem de forma consiste
 
 - `frontend/` — SPA React (Nginx serve build; `try_files $uri /index.html`)
 - `api/` — NestJS (módulos por domínio)
-- `k8s/` — `base/`, `overlays/dev/`, `argocd/`
+- `k8s/` — `charts/sircurty/` (Helm), `argocd/`
 - `.github/workflows/` — `ci.yml`, `cd.yml`
 - `docs/` — planejamento, arquitetura, observabilidade, pitch, AI usage
 - `scripts/` — seed, geração de cliques para demo

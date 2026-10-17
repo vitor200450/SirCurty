@@ -1,17 +1,21 @@
 # Manifests Kubernetes
 
-Kustomize (base + overlays) com deploy via ArgoCD (GitOps).
+Chart Helm (`k8s/charts/sircurty`) com deploy via ArgoCD (GitOps).
 
 ```text
 k8s/
-  base/
-    app/             # namespace `sircurty`: frontend, api, postgres, config, ingress
-    observability/   # namespace `observability`: OTel Collector, Tempo, Grafana
-  overlays/dev/      # junta base/app + base/observability (replicas=1, tags de imagem)
+  charts/sircurty/
+    Chart.yaml
+    values.yaml            # tags de imagem (bump do CD), hosts, replicas, ambiente
+    dashboards/*.json      # dashboards do Grafana, carregados com .Files.Get
+    templates/
+      app/                 # namespace `sircurty`: frontend, api, postgres, config, ingress
+      observability/       # namespace `observability`: OTel Collector, Tempo, Grafana
   argocd/application.yaml
+  secret.example.yaml      # referencia do Secret (nao faz parte do chart)
 ```
 
-## Componentes (`base/app`)
+## Componentes (`templates/app`)
 
 | Recurso | Tipo | Observações |
 |---|---|---|
@@ -36,25 +40,31 @@ Sync waves (ArgoCD): `0` namespace/config/observability → `1` postgres → `2`
 
 ## Secret (nunca commitado)
 
-O Secret precisa existir antes do sync (o namespace é criado pelo ArgoCD/kustomize; se o namespace ainda não existir, crie-o antes: `kubectl create namespace sircurty`):
+O Secret precisa existir no namespace `sircurty`. Com ArgoCD, o namespace é criado no sync; se o
+pod subir antes do Secret ele fica em `CreateContainerConfigError` e se recupera sozinho assim que
+o Secret existir.
 
 ```bash
+kubectl create namespace sircurty   # só se o namespace ainda não existir
 kubectl -n sircurty create secret generic sircurty-secrets \
   --from-literal=POSTGRES_PASSWORD='<senha>' \
   --from-literal=DATABASE_URL='postgresql://sircurty:<senha>@postgres:5432/sircurty?schema=public' \
   --from-literal=JWT_SECRET='<string-aleatoria>'
 ```
 
-`base/app/config/secret.example.yaml` é só referência e não entra no kustomization.
+`secret.example.yaml` é só referência e não faz parte do chart.
 
 ## Aplicar
 
 Sem ArgoCD (teste local):
 
 ```bash
-kubectl kustomize k8s/overlays/dev      # renderiza
-kubectl apply -k k8s/overlays/dev
+helm lint k8s/charts/sircurty
+helm template sircurty k8s/charts/sircurty      # renderiza
+helm upgrade --install sircurty k8s/charts/sircurty --namespace default
 ```
+
+O chart cria os namespaces `sircurty` e `observability`; o release em si fica em `default`.
 
 Com ArgoCD:
 
@@ -65,23 +75,25 @@ kubectl apply -f k8s/argocd/application.yaml
 ## Imagens
 
 Os Deployments usam `ghcr.io/vitor200450/sircurty-api` e `ghcr.io/vitor200450/sircurty-frontend`.
-O CD deve atualizar a tag no overlay:
+As tags ficam em `k8s/charts/sircurty/values.yaml` (`api.image.tag`, `frontend.image.tag`); o CD as
+atualiza com:
 
 ```bash
-cd k8s/overlays/dev
-kustomize edit set image ghcr.io/vitor200450/sircurty-api=ghcr.io/vitor200450/sircurty-api:<sha>
-kustomize edit set image ghcr.io/vitor200450/sircurty-frontend=ghcr.io/vitor200450/sircurty-frontend:<sha>
+cd k8s/charts/sircurty
+yq -i '.api.image.tag = "<sha>" | .frontend.image.tag = "<sha>"' values.yaml
 ```
+
+Para testar uma imagem local: `--set api.image.tag=local`.
 
 ## CI/CD
 
-- `.github/workflows/ci.yml` (PR/push em `develop` e `main`): lint/test/build da API e do frontend, `kubectl kustomize` do overlay e build (sem push) dos Dockerfiles.
-- `.github/workflows/cd.yml` (push em `develop`): build e push das imagens para o GHCR (tag = SHA) e commit do bump de tag em `k8s/overlays/dev`; o ArgoCD detecta o commit e aplica.
+- `.github/workflows/ci.yml` (PR/push em `develop` e `main`): lint/test/build da API e do frontend, `helm lint` + `helm template` do chart e build (sem push) dos Dockerfiles.
+- `.github/workflows/cd.yml` (push em `develop`): build e push das imagens para o GHCR (tag = SHA) e commit do bump de tag em `k8s/charts/sircurty/values.yaml`; o ArgoCD detecta o commit e aplica.
 - O bump faz push direto em `develop`: se a branch ficar protegida, liberar o `github-actions[bot]`.
-- Migrations: o `initContainer` `migrate` da API roda `prisma migrate deploy` com a mesma imagem.
+- Migrations: o `initContainer` `migrate` da API roda `prisma migrate deploy --config prisma7.config.ts` com a mesma imagem.
 
 ## Pendências
 
-- Os Dockerfiles e os workflows assumem `package-lock.json`, scripts `build`/`test`/`lint` e `prisma/` em `api/`; ainda não foram executados porque `api/` e `frontend/` não têm código.
-- Manifests e workflows validados apenas sintaticamente (`kustomize build`, parse do YAML); falta testar no cluster.
-- Confirmar com a API o prefixo global `/api` (health fica em `/health/*`, sem prefixo) e o GHCR (pacotes públicos ou `imagePullSecret`).
+- O frontend ainda não tem código-fonte no repositório, então a imagem `sircurty-frontend` não pode ser construída.
+- O chart foi instalado e validado no Docker Desktop (API, Postgres, Grafana, Tempo e OTel `Running`); o sync real do ArgoCD e os workflows no GitHub Actions ainda não foram executados.
+- Confirmar o GHCR (pacotes públicos ou `imagePullSecret`).
