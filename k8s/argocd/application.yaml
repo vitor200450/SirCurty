@@ -11,7 +11,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/YOUR_ORG/SirCurty   # update to actual repo URL
+    repoURL: https://github.com/vitor200450/SirCurty
     targetRevision: develop
     path: k8s/overlays/dev
 
@@ -35,7 +35,7 @@ spec:
 
   # Sync waves: observability comes up before the app so traces are captured from the start
   # Wave assignments live in each resource via annotation:
-  # metadata.annotations: argocd.argoproj.io/sync-wave: "0"  (observability)
+  # metadata.annotations: argocd.argoproj.io/sync-wave: "0"  (namespaces, config, observability)
   # metadata.annotations: argocd.argoproj.io/sync-wave: "1"  (postgres)
   # metadata.annotations: argocd.argoproj.io/sync-wave: "2"  (api)
   # metadata.annotations: argocd.argoproj.io/sync-wave: "3"  (frontend)

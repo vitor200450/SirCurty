@@ -1,11 +1,17 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Pulls in the observability stack.
-# The app base (frontend/api/postgres) will be added here
-# by the infrastructure team when k8s/base/app/ is ready.
+# Observability stack + application (frontend, api, postgres)
 resources:
   - ../../base/observability
+  - ../../base/app
+
+# Image tags are bumped here by the CD pipeline (kustomize edit set image ...)
+images:
+  - name: ghcr.io/vitor200450/sircurty-api
+    newTag: latest
+  - name: ghcr.io/vitor200450/sircurty-frontend
+    newTag: latest
 
 # Common labels applied to every resource in this overlay
 commonLabels:
@@ -35,5 +41,22 @@ patches:
       metadata:
         name: grafana
         namespace: observability
+      spec:
+        replicas: 1
+  # api and frontend: single replica in dev as well
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: api
+        namespace: sircurty
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: frontend
+        namespace: sircurty
       spec:
         replicas: 1

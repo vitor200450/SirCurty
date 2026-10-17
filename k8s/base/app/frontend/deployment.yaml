@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: sircurty
+  labels:
+    app: frontend
+    app.kubernetes.io/part-of: sircurty
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          # Tag is bumped by CI/CD through the kustomize `images` field in the overlay
+          image: ghcr.io/vitor200450/sircurty-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          # Read by docker-entrypoint.sh to render /env-config.js
+          env:
+            - name: API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: sircurty-config
+                  key: API_URL
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: sircurty-config
+                  key: APP_ENV
+            - name: APP_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: sircurty-config
+                  key: APP_BASE_URL
+            - name: OTEL_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: sircurty-config
+                  key: OTEL_ENDPOINT
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 3

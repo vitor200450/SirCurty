@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sircurty-config
+  namespace: sircurty
+  labels:
+    app.kubernetes.io/part-of: sircurty
+data:
+  # Frontend runtime config (rendered into /env-config.js by docker-entrypoint.sh)
+  API_URL: "/api"
+  APP_ENV: "dev"
+  APP_BASE_URL: "http://sircurty.local"
+  OTEL_ENDPOINT: "http://otel.sircurty.local"
+
+  # API runtime config
+  NODE_ENV: "production"
+  PORT: "3000"
+  OTEL_SERVICE_NAME: "sircurty-api"
+  OTEL_DEPLOYMENT_ENV: "dev"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability.svc.cluster.local:4317"
+
+  # Postgres (non-sensitive part; the password lives in the sircurty-secrets Secret)
+  POSTGRES_DB: "sircurty"
+  POSTGRES_USER: "sircurty"
