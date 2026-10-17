@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { LinkStatus } from '../../generated/prisma/client.js';
+import { LinkStatus, Prisma } from '../../generated/prisma/client.js';
 import { LinksService } from './links.service.js';
 import { CreateLinkDto } from './dto/create-link.dto.js';
 import { UpdateLinkDto } from './dto/update-link.dto.js';
@@ -185,6 +185,75 @@ describe('LinksService.create', () => {
     const dto = { url: 'https://example.com' } as CreateLinkDto;
     await expect(service.create(dto, OWNER)).rejects.toThrow(ConflictException);
     expect(prisma.link.findUnique).toHaveBeenCalledTimes(5);
+  });
+
+  // ── P2002 race condition tests ────────────────────────────────────────────
+  // These tests verify that a concurrent unique-constraint violation at
+  // insert time is handled gracefully — no 500, controlled HTTP response.
+
+  /** Build a PrismaClientKnownRequestError with code P2002 (unique constraint). */
+  function makeP2002(): Prisma.PrismaClientKnownRequestError {
+    return new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint failed on the fields: (`slug`)',
+      { code: 'P2002', clientVersion: '7.10.1' },
+    );
+  }
+
+  it('returns 409 for custom slug when P2002 occurs at insert time (race)', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(null); // pre-check says free
+    prisma.link.create.mockRejectedValue(makeP2002()); // but race inserts first
+
+    const dto = {
+      url: 'https://example.com',
+      customSlug: 'my-race-slug',
+    } as CreateLinkDto;
+
+    await expect(service.create(dto, OWNER)).rejects.toThrow(ConflictException);
+    expect(prisma.link.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries auto-slug insert on P2002 and succeeds with a new slug', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(null); // pre-check says free
+    const link = makeLink({ slug: 'new-unique-slug' });
+    // First insert fails with P2002 (race), second succeeds
+    prisma.link.create
+      .mockRejectedValueOnce(makeP2002())
+      .mockResolvedValueOnce(link);
+
+    const dto = { url: 'https://example.com' } as CreateLinkDto;
+    const result = await service.create(dto, OWNER);
+
+    expect(result.code).toBe('new-unique-slug');
+    expect(prisma.link.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws 409 when auto-slug insert exhausts all retries on P2002', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(null); // pre-check says free
+    prisma.link.create.mockRejectedValue(makeP2002()); // every insert races
+
+    const dto = { url: 'https://example.com' } as CreateLinkDto;
+    await expect(service.create(dto, OWNER)).rejects.toThrow(ConflictException);
+    // resolveSlug does 5 findUnique pre-checks; create does up to 5 insert
+    // attempts (initial + 4 retries = 5 total).
+    expect(prisma.link.create).toHaveBeenCalledTimes(5);
+  });
+
+  it('rethrows non-P2002 Prisma errors from create without hiding them', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(null);
+    const otherError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      { code: 'P2003', clientVersion: '7.10.1' },
+    );
+    prisma.link.create.mockRejectedValue(otherError);
+
+    const dto = { url: 'https://example.com' } as CreateLinkDto;
+    await expect(service.create(dto, OWNER)).rejects.toThrow(
+      Prisma.PrismaClientKnownRequestError,
+    );
   });
 
   it('persists expiresAt and singleUse when provided', async () => {

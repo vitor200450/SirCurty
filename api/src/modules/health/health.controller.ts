@@ -5,6 +5,7 @@ import {
   HttpStatus,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../../infrastructure/database/prisma.service.js';
 
 /**
@@ -14,8 +15,12 @@ import { PrismaService } from '../../infrastructure/database/prisma.service.js';
  * /health/live  — liveness probe: confirms the Node process is running.
  * /health/ready — readiness probe: confirms the app can serve traffic,
  *                 including a verified database connection.
+ *
+ * @SkipThrottle() ensures Kubernetes probe traffic never triggers rate-limit
+ * rejections regardless of probe frequency.
  */
 @Controller('health')
+@SkipThrottle({ default: true, unlock: true })
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
