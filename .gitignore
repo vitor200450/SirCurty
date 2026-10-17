@@ -5,3 +5,24 @@ Thumbs.db
 # PDF do desafio (não versionar)
 Hackathon*.pdf
 *.pdf
+
+# Node.js
+node_modules/
+dist/
+coverage/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Prisma
+api/prisma/*.db
+api/prisma/*.db-journal
+
+# Logs
+*.log
+
+# Local cookies and session data
+cookies.txt
+**/cookies.txt
