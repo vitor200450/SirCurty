@@ -14,7 +14,7 @@
 
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import {
   SEMRESATTRS_SERVICE_NAME,
   SEMRESATTRS_SERVICE_VERSION,
@@ -43,7 +43,7 @@ const exporter = new OTLPTraceExporter({
 });
 
 const sdk = new NodeSDK({
-  resource: new Resource({
+  resource: resourceFromAttributes({
     [SEMRESATTRS_SERVICE_NAME]: SERVICE_NAME,
     [SEMRESATTRS_SERVICE_VERSION]: SERVICE_VERSION,
     [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: DEPLOYMENT_ENV,
@@ -84,21 +84,23 @@ const sdk = new NodeSDK({
 // ---------------------------------------------------------------------------
 // Start — synchronous so it finishes before any require() that follows
 // ---------------------------------------------------------------------------
-sdk.start();
+if (process.env.NODE_ENV !== 'test') {
+  sdk.start();
+}
 
-// Flush remaining spans on graceful shutdown
-process.on('SIGTERM', () => {
-  sdk
-    .shutdown()
-    .then(() => console.log('[otel] SDK shut down successfully'))
-    .catch((err) => console.error('[otel] Error shutting down SDK', err))
-    .finally(() => process.exit(0));
-});
+/**
+ * Flush pending spans and shut down the OpenTelemetry SDK.
+ * Called by NestJS during graceful application shutdown.
+ */
+export async function shutdownTracing(): Promise<void> {
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
 
-process.on('SIGINT', () => {
-  sdk
-    .shutdown()
-    .then(() => console.log('[otel] SDK shut down successfully'))
-    .catch((err) => console.error('[otel] Error shutting down SDK', err))
-    .finally(() => process.exit(0));
-});
+  try {
+    await sdk.shutdown();
+    console.log('[otel] SDK shut down successfully');
+  } catch (err: unknown) {
+    console.error('[otel] Error shutting down SDK', err);
+  }
+}

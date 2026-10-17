@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+coverage/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local cookies and session data
+cookies.txt
+**/cookies.txt
+
+# Generated Prisma Client
+/src/generated/prisma/
+
+# Local AI development tools and skills
+/.agents/
+/.claude/
+/.windsurf/
+/skills-lock.json
