@@ -42,9 +42,9 @@ describe('isValidCustomSlug', () => {
     ['my_slug', true],
     ['Slug123', true],
     ['a-b_c-1', true],
-    ['slug-with-32-characters-exactly!', false],   // 33 chars + invalid char
-    ['32charslongslug123456789012345678', false],    // 33 chars
-    ['ab', false],     // too short (< 3)
+    ['slug-with-32-characters-exactly!', false], // 33 chars + invalid char
+    ['32charslongslug123456789012345678', false], // 33 chars
+    ['ab', false], // too short (< 3)
     ['', false],
     ['has space', false],
     ['has.dot', false],

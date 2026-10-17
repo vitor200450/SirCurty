@@ -6,8 +6,8 @@ import {
   IsUrl,
   Matches,
   MaxLength,
+  MinLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
 import { CUSTOM_SLUG_REGEX } from '../../../utils/slug.util.js';
 
 export class CreateLinkDto {
@@ -28,29 +28,27 @@ export class CreateLinkDto {
   @IsOptional()
   @IsString()
   @Matches(CUSTOM_SLUG_REGEX, {
-    message: 'customSlug must be 3–32 characters: letters, numbers, hyphens or underscores',
+    message:
+      'customSlug must be 3–32 characters: letters, numbers, hyphens or underscores',
   })
   customSlug?: string;
 
   /**
-   * Optional link password.
-   * ⚠️ Phase limitation: password hashing is not yet implemented.
-   * This field is accepted by the API but NOT persisted until the
-   * security phase introduces a hashing library. Do not rely on
-   * this field for access control in this phase.
+   * Optional link password. The service hashes it with bcrypt before storage.
+   * bcrypt only uses the first 72 UTF-8 bytes, so the service rejects longer
+   * values rather than allowing distinct passwords to become equivalent.
    */
   @IsOptional()
   @IsString()
+  @MinLength(1)
   @MaxLength(128)
+  @Matches(/\S/, { message: 'password must not be blank' })
   password?: string;
 
   /** Optional expiry date-time (ISO 8601). */
   @IsOptional()
   @IsDateString({}, { message: 'expiresAt must be an ISO 8601 date string' })
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? new Date(value).toISOString() : value,
-  )
-  expiresAt?: string;
+  expiresAt?: string | null;
 
   /** If true, the link is invalidated after its first use. */
   @IsOptional()

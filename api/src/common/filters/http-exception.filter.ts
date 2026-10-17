@@ -16,17 +16,32 @@ import { Prisma } from '../../generated/prisma/client.js';
  *
  * Reference: https://www.prisma.io/docs/reference/api-reference/error-reference
  */
-const PRISMA_ERROR_MAP: Record<string, { statusCode: number; message: string }> = {
+const PRISMA_ERROR_MAP: Record<
+  string,
+  { statusCode: number; message: string }
+> = {
   // Unique constraint violation (slug/email already taken)
-  P2002: { statusCode: HttpStatus.CONFLICT, message: 'Resource already exists' },
+  P2002: {
+    statusCode: HttpStatus.CONFLICT,
+    message: 'Resource already exists',
+  },
   // Record not found (findUniqueOrThrow / updateOrThrow)
   P2025: { statusCode: HttpStatus.NOT_FOUND, message: 'Resource not found' },
   // Foreign key constraint violation
-  P2003: { statusCode: HttpStatus.UNPROCESSABLE_ENTITY, message: 'Related resource not found' },
+  P2003: {
+    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Related resource not found',
+  },
   // Required field missing at the query level
-  P2011: { statusCode: HttpStatus.BAD_REQUEST, message: 'Missing required field' },
+  P2011: {
+    statusCode: HttpStatus.BAD_REQUEST,
+    message: 'Missing required field',
+  },
   // Value too long for column type
-  P2000: { statusCode: HttpStatus.BAD_REQUEST, message: 'Input value is too long' },
+  P2000: {
+    statusCode: HttpStatus.BAD_REQUEST,
+    message: 'Input value is too long',
+  },
 };
 
 export interface ErrorResponse {
@@ -103,19 +118,34 @@ export class HttpExceptionFilter implements ExceptionFilter {
         `Unmapped Prisma error ${exception.code} at ${path}`,
         exception.stack,
       );
-      return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Internal server error' };
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Internal server error',
+      };
     }
 
     // ── Prisma validation error (bad query shape, not user input) ─────────
     if (exception instanceof Prisma.PrismaClientValidationError) {
-      this.logger.error(`Prisma validation error at ${path}`, exception.message);
-      return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Internal server error' };
+      this.logger.error(
+        `Prisma validation error at ${path}`,
+        exception.message,
+      );
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Internal server error',
+      };
     }
 
     // ── Prisma initialization error ───────────────────────────────────────
     if (exception instanceof Prisma.PrismaClientInitializationError) {
-      this.logger.error(`Prisma initialization error at ${path}`, exception.message);
-      return { statusCode: HttpStatus.SERVICE_UNAVAILABLE, message: 'Service temporarily unavailable' };
+      this.logger.error(
+        `Prisma initialization error at ${path}`,
+        exception.message,
+      );
+      return {
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        message: 'Service temporarily unavailable',
+      };
     }
 
     // ── Unknown / unhandled ───────────────────────────────────────────────
@@ -123,6 +153,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       `Unhandled exception at ${path}`,
       exception instanceof Error ? exception.stack : String(exception),
     );
-    return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Internal server error' };
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Internal server error',
+    };
   }
 }

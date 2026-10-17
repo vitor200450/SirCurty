@@ -1,9 +1,15 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { envValidationSchema } from './config/env.validation.js';
 import { PrismaModule } from './infrastructure/database/prisma.module.js';
+import { HealthModule } from './modules/health/health.module.js';
 import { LinksModule } from './modules/links/links.module.js';
 import { AnonymousMiddleware } from './modules/auth/anonymous.middleware.js';
 
@@ -13,6 +19,7 @@ import { AnonymousMiddleware } from './modules/auth/anonymous.middleware.js';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      ignoreEnvFile: process.env.NODE_ENV === 'test',
       validationSchema: envValidationSchema,
     }),
 
@@ -20,6 +27,7 @@ import { AnonymousMiddleware } from './modules/auth/anonymous.middleware.js';
     PrismaModule,
 
     // Feature modules
+    HealthModule,
     LinksModule,
   ],
   controllers: [AppController],

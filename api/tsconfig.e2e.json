@@ -2,6 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "Bundler"
+    "moduleResolution": "Bundler",
+    // resolvePackageJsonExports is only valid with node16/nodenext/bundler — bundler
+    // is set above, but ts-jest 29.x processes the option before resolving the
+    // inheritance chain and rejects it. Disable here to unblock E2E compilation.
+    "resolvePackageJsonExports": false
   }
 }

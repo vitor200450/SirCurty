@@ -7,13 +7,17 @@ export class LinkPreviewDto {
   /** The public slug / code of the link. */
   code!: string;
 
-  /** The destination URL the visitor will be sent to. */
-  originalUrl!: string;
+  /**
+   * The destination URL the visitor will be sent to.
+   * Null when the link requires a password — the destination is withheld
+   * until the visitor provides the correct password.
+   */
+  originalUrl!: string | null;
 
   /**
    * Whether this link requires a password before redirect.
    * When true, the frontend must collect the password and call
-   * POST /api/links/:code/verify-password (security phase).
+   * POST /api/links/:code/unlock.
    */
   requiresPassword!: boolean;
 

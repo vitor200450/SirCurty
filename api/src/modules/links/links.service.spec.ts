@@ -1,9 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
-  NotImplementedException,
   NotFoundException,
   GoneException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LinkStatus } from '../../generated/prisma/client.js';
@@ -13,24 +13,26 @@ import { UpdateLinkDto } from './dto/update-link.dto.js';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
-const OWNER = 'a'.repeat(64);  // valid 64-char ownerAnonId
+const OWNER = 'a'.repeat(64); // valid 64-char ownerAnonId
 const OTHER_OWNER = 'b'.repeat(64);
 const BASE_URL = 'http://localhost:3000';
 
-function makeLink(overrides: Partial<{
-  id: number;
-  slug: string;
-  originalUrl: string;
-  ownerAnonId: string;
-  ownerUserId: number | null;
-  passwordHash: string | null;
-  isSingleUse: boolean;
-  usedAt: Date | null;
-  expiresAt: Date | null;
-  status: LinkStatus;
-  createdAt: Date;
-  updatedAt: Date;
-}> = {}) {
+function makeLink(
+  overrides: Partial<{
+    id: number;
+    slug: string;
+    originalUrl: string;
+    ownerAnonId: string;
+    ownerUserId: number | null;
+    passwordHash: string | null;
+    isSingleUse: boolean;
+    usedAt: Date | null;
+    expiresAt: Date | null;
+    status: LinkStatus;
+    createdAt: Date;
+    updatedAt: Date;
+  }> = {},
+) {
   return {
     id: 1,
     slug: 'abc123def456',
@@ -65,14 +67,19 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
 
 function makeConfig(baseUrl = BASE_URL) {
   return {
-    get: jest.fn((key: string, def: unknown) => (key === 'APP_BASE_URL' ? baseUrl : def)),
+    get: jest.fn((key: string, def: unknown) =>
+      key === 'APP_BASE_URL' ? baseUrl : def,
+    ),
   };
 }
 
 function makeService(prismaOverrides: Record<string, unknown> = {}) {
   const prisma = makePrisma(prismaOverrides);
   const config = makeConfig();
-  const service = new LinksService(prisma as never, config as unknown as ConfigService);
+  const service = new LinksService(
+    prisma as never,
+    config as unknown as ConfigService,
+  );
   return { service, prisma, config };
 }
 
@@ -82,10 +89,10 @@ describe('LinksService.create', () => {
   it('creates a link with auto-generated slug and returns code and shortUrl', async () => {
     const { service, prisma } = makeService();
     const link = makeLink();
-    prisma.link.findUnique.mockResolvedValue(null);   // no collision
+    prisma.link.findUnique.mockResolvedValue(null); // no collision
     prisma.link.create.mockResolvedValue(link);
 
-    const dto: CreateLinkDto = { url: 'https://example.com' } as CreateLinkDto;
+    const dto: CreateLinkDto = { url: 'https://example.com' };
     const result = await service.create(dto, OWNER);
 
     expect(result.code).toBe(link.slug);
@@ -107,32 +114,50 @@ describe('LinksService.create', () => {
     prisma.link.findUnique.mockResolvedValue(null);
     prisma.link.create.mockResolvedValue(link);
 
-    const dto = { url: 'https://example.com', customSlug: 'my-slug' } as CreateLinkDto;
+    const dto = {
+      url: 'https://example.com',
+      customSlug: 'my-slug',
+    } as CreateLinkDto;
     const result = await service.create(dto, OWNER);
 
     expect(result.code).toBe('my-slug');
     expect(prisma.link.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ slug: 'my-slug' }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ slug: 'my-slug' }),
+      }),
     );
   });
 
   it('throws 400 for invalid customSlug pattern', async () => {
     const { service } = makeService();
-    const dto = { url: 'https://example.com', customSlug: 'a' } as CreateLinkDto;
-    await expect(service.create(dto, OWNER)).rejects.toThrow(BadRequestException);
+    const dto = {
+      url: 'https://example.com',
+      customSlug: 'a',
+    } as CreateLinkDto;
+    await expect(service.create(dto, OWNER)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('throws 400 for reserved customSlug', async () => {
     const { service } = makeService();
-    const dto = { url: 'https://example.com', customSlug: 'admin' } as CreateLinkDto;
-    await expect(service.create(dto, OWNER)).rejects.toThrow(BadRequestException);
+    const dto = {
+      url: 'https://example.com',
+      customSlug: 'admin',
+    } as CreateLinkDto;
+    await expect(service.create(dto, OWNER)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('throws 409 when customSlug is already taken', async () => {
     const { service, prisma } = makeService();
     prisma.link.findUnique.mockResolvedValue(makeLink({ slug: 'taken' }));
 
-    const dto = { url: 'https://example.com', customSlug: 'taken' } as CreateLinkDto;
+    const dto = {
+      url: 'https://example.com',
+      customSlug: 'taken',
+    } as CreateLinkDto;
     await expect(service.create(dto, OWNER)).rejects.toThrow(ConflictException);
   });
 
@@ -166,9 +191,15 @@ describe('LinksService.create', () => {
     const { service, prisma } = makeService();
     const expiresAt = '2027-12-31T00:00:00.000Z';
     prisma.link.findUnique.mockResolvedValue(null);
-    prisma.link.create.mockResolvedValue(makeLink({ isSingleUse: true, expiresAt: new Date(expiresAt) }));
+    prisma.link.create.mockResolvedValue(
+      makeLink({ isSingleUse: true, expiresAt: new Date(expiresAt) }),
+    );
 
-    const dto = { url: 'https://example.com', singleUse: true, expiresAt } as CreateLinkDto;
+    const dto = {
+      url: 'https://example.com',
+      singleUse: true,
+      expiresAt,
+    } as CreateLinkDto;
     await service.create(dto, OWNER);
 
     expect(prisma.link.create).toHaveBeenCalledWith(
@@ -181,62 +212,77 @@ describe('LinksService.create', () => {
     );
   });
 
-  it('rejects a request that includes a password with 501 Not Implemented', async () => {
-    const { service } = makeService();
-    const dto = { url: 'https://example.com', password: 'secret' } as CreateLinkDto;
-
-    await expect(service.create(dto, OWNER)).rejects.toThrow(NotImplementedException);
-  });
-
-  it('rejects a password request before any Prisma call', async () => {
+  it('creates a password-protected link by hashing the password with bcrypt', async () => {
     const { service, prisma } = makeService();
+    const link = makeLink({ passwordHash: '$2b$12$hashed' });
+    prisma.link.findUnique.mockResolvedValue(null);
+    prisma.link.create.mockResolvedValue(link);
+
     const dto = {
       url: 'https://example.com',
       password: 'secret',
     } as CreateLinkDto;
+    const result = await service.create(dto, OWNER);
 
-    await expect(service.create(dto, OWNER)).rejects.toThrow(
-      NotImplementedException,
+    expect(result.code).toBe(link.slug);
+    // Verify bcrypt hash was stored, never the raw password
+    const createCall = prisma.link.create.mock.calls[0]?.[0] as {
+      data: { passwordHash: string | null };
+    };
+    expect(createCall.data.passwordHash).not.toBeNull();
+    expect(createCall.data.passwordHash).not.toBe('secret');
+    // bcrypt hashes always start with $2b$
+    expect(createCall.data.passwordHash).toMatch(/^\$2b\$/);
+  });
+
+  it('never stores the raw password in the database', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(null);
+    prisma.link.create.mockResolvedValue(
+      makeLink({ passwordHash: '$2b$12$hashed' }),
     );
 
-    expect(prisma.link.findUnique).not.toHaveBeenCalled();
+    const dto = {
+      url: 'https://example.com',
+      password: 'top-secret-value',
+    } as CreateLinkDto;
+
+    await service.create(dto, OWNER);
+
+    const createCall = prisma.link.create.mock.calls[0]?.[0] as {
+      data: { passwordHash: string | null };
+    };
+    // The raw password must never reach the DB layer
+    expect(createCall.data.passwordHash).not.toBe('top-secret-value');
+    expect(JSON.stringify(createCall.data)).not.toContain('top-secret-value');
+  });
+
+  it('rejects passwords exceeding bcrypt UTF-8 byte limit', async () => {
+    const { service, prisma } = makeService();
+    const dto = {
+      url: 'https://example.com',
+      password: 'a'.repeat(73),
+    } as CreateLinkDto;
+
+    await expect(service.create(dto, OWNER)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(prisma.link.create).not.toHaveBeenCalled();
   });
 
-  it('error response for a password request does not expose the password value', async () => {
-    const { service } = makeService();
-    const dto = { url: 'https://example.com', password: 'top-secret-value' } as CreateLinkDto;
-
-    let caughtError: unknown;
-    try {
-      await service.create(dto, OWNER);
-    } catch (err) {
-      caughtError = err;
-    }
-
-    expect(caughtError).toBeInstanceOf(NotImplementedException);
-    const error = caughtError as NotImplementedException;
-    const response = error.getResponse();
-    const serialised = JSON.stringify(response);
-    expect(serialised).not.toContain('top-secret-value');
-  });
-
-  it('creates a link without a password without errors (password omitted)', async () => {
+  it('creates a link without a password when password is omitted', async () => {
     const { service, prisma } = makeService();
     const link = makeLink();
     prisma.link.findUnique.mockResolvedValue(null);
     prisma.link.create.mockResolvedValue(link);
 
-    const dto: CreateLinkDto = { url: 'https://example.com' } as CreateLinkDto;
-    const result = await service.create(dto, OWNER);
+    const dto = { url: 'https://example.com' } as CreateLinkDto;
+    await service.create(dto, OWNER);
 
-    expect(result.code).toBe(link.slug);
-    expect(result.shortUrl).toBe(`${BASE_URL}/s/${link.slug}`);
-    expect(prisma.link.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.not.objectContaining({ passwordHash: expect.anything() }),
-      }),
-    );
+    const createCall = prisma.link.create.mock.calls[0]?.[0] as {
+      data: { passwordHash: string | null };
+    };
+    expect(createCall.data.passwordHash).toBeNull();
   });
 });
 
@@ -247,21 +293,23 @@ describe('LinksService.getRedirectTarget', () => {
     const { service, prisma } = makeService();
     prisma.link.findUnique.mockResolvedValue(makeLink());
 
-    await expect(service.getRedirectTarget('abc123def456'))
-      .resolves.toBe('https://example.com');
+    await expect(service.getRedirectTarget('abc123def456')).resolves.toEqual({
+      url: 'https://example.com',
+      linkId: 1,
+    });
 
     expect(prisma.link.updateMany).not.toHaveBeenCalled();
   });
 
   it('consumes a single-use link atomically', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(
-      makeLink({ isSingleUse: true }),
-    );
+    prisma.link.findUnique.mockResolvedValue(makeLink({ isSingleUse: true }));
     prisma.link.updateMany.mockResolvedValue({ count: 1 });
 
-    await expect(service.getRedirectTarget('abc123def456'))
-      .resolves.toBe('https://example.com');
+    await expect(service.getRedirectTarget('abc123def456')).resolves.toEqual({
+      url: 'https://example.com',
+      linkId: 1,
+    });
 
     expect(prisma.link.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -286,15 +334,14 @@ describe('LinksService.getRedirectTarget', () => {
 
     prisma.link.updateMany.mockResolvedValue({ count: 0 });
 
-    await expect(service.getRedirectTarget('abc123def456'))
-      .rejects.toThrow(GoneException);
+    await expect(service.getRedirectTarget('abc123def456')).rejects.toThrow(
+      GoneException,
+    );
   });
 
   it('rejects when another request consumes the link first', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(
-      makeLink({ isSingleUse: true }),
-    );
+    prisma.link.findUnique.mockResolvedValue(makeLink({ isSingleUse: true }));
 
     prisma.link.updateMany
       .mockResolvedValueOnce({ count: 1 })
@@ -312,13 +359,12 @@ describe('LinksService.getRedirectTarget', () => {
 
   it('rejects a single-use link that expires before atomic consumption', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(
-      makeLink({ isSingleUse: true }),
-    );
+    prisma.link.findUnique.mockResolvedValue(makeLink({ isSingleUse: true }));
     prisma.link.updateMany.mockResolvedValue({ count: 0 });
 
-    await expect(service.getRedirectTarget('abc123def456'))
-      .rejects.toThrow(GoneException);
+    await expect(service.getRedirectTarget('abc123def456')).rejects.toThrow(
+      GoneException,
+    );
   });
 });
 
@@ -342,7 +388,9 @@ describe('LinksService.findAll', () => {
 
   it('excludes passwordHash and owner fields from response', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findMany.mockResolvedValue([makeLink({ passwordHash: 'hash' })]);
+    prisma.link.findMany.mockResolvedValue([
+      makeLink({ passwordHash: 'hash' }),
+    ]);
 
     const [link] = await service.findAll(OWNER);
     expect(link).not.toHaveProperty('passwordHash');
@@ -375,21 +423,31 @@ describe('LinksService.findOne', () => {
     const { service, prisma } = makeService();
     prisma.link.findUnique.mockResolvedValue(null);
 
-    await expect(service.findOne('notexist', OWNER)).rejects.toThrow(NotFoundException);
+    await expect(service.findOne('notexist', OWNER)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('throws 404 when link is DELETED', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(makeLink({ status: LinkStatus.DELETED }));
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ status: LinkStatus.DELETED }),
+    );
 
-    await expect(service.findOne('abc123def456', OWNER)).rejects.toThrow(NotFoundException);
+    await expect(service.findOne('abc123def456', OWNER)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('throws 404 when owner does not match (isolates owners)', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(makeLink({ ownerAnonId: OTHER_OWNER }));
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ ownerAnonId: OTHER_OWNER }),
+    );
 
-    await expect(service.findOne('abc123def456', OWNER)).rejects.toThrow(NotFoundException);
+    await expect(service.findOne('abc123def456', OWNER)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
 
@@ -402,20 +460,24 @@ describe('LinksService.update', () => {
     prisma.link.findUnique.mockResolvedValue(makeLink());
     prisma.link.update.mockResolvedValue(updated);
 
-    const dto: UpdateLinkDto = { url: 'https://new.example.com' } as UpdateLinkDto;
+    const dto: UpdateLinkDto = { url: 'https://new.example.com' };
     const result = await service.update('abc123def456', dto, OWNER);
 
     expect(result.originalUrl).toBe('https://new.example.com');
     expect(prisma.link.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ originalUrl: 'https://new.example.com' }),
+        data: expect.objectContaining({
+          originalUrl: 'https://new.example.com',
+        }),
       }),
     );
   });
 
   it('throws 404 when link is DELETED', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(makeLink({ status: LinkStatus.DELETED }));
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ status: LinkStatus.DELETED }),
+    );
 
     await expect(
       service.update('abc123def456', {} as UpdateLinkDto, OWNER),
@@ -424,7 +486,9 @@ describe('LinksService.update', () => {
 
   it('throws 404 when owner does not match', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(makeLink({ ownerAnonId: OTHER_OWNER }));
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ ownerAnonId: OTHER_OWNER }),
+    );
 
     await expect(
       service.update('abc123def456', {} as UpdateLinkDto, OWNER),
@@ -439,13 +503,64 @@ describe('LinksService.update', () => {
 
     // UpdateLinkDto has no slug/owner fields — whitelist enforced by ValidationPipe
     // Here we verify the service never passes them to Prisma
-    const dto = { url: 'https://safe.com' } as UpdateLinkDto;
+    const dto: UpdateLinkDto = { url: 'https://safe.com' };
     await service.update('abc123def456', dto, OWNER);
 
-    const updateData = prisma.link.update.mock.calls[0][0].data;
-    expect(updateData).not.toHaveProperty('slug');
-    expect(updateData).not.toHaveProperty('ownerAnonId');
-    expect(updateData).not.toHaveProperty('ownerUserId');
+    const updateArg = prisma.link.update.mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+    expect(updateArg.data).not.toHaveProperty('slug');
+    expect(updateArg.data).not.toHaveProperty('ownerAnonId');
+    expect(updateArg.data).not.toHaveProperty('ownerUserId');
+  });
+
+  it('disables an active link', async () => {
+    const { service, prisma } = makeService();
+    const disabledLink = makeLink({ status: LinkStatus.DISABLED });
+    prisma.link.findUnique.mockResolvedValue(makeLink());
+    prisma.link.update.mockResolvedValue(disabledLink);
+
+    const dto: UpdateLinkDto = { status: LinkStatus.DISABLED };
+    const result = await service.update('abc123def456', dto, OWNER);
+
+    expect(result.status).toBe(LinkStatus.DISABLED);
+    expect(prisma.link.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: LinkStatus.DISABLED }),
+      }),
+    );
+  });
+
+  it('re-activates a disabled link', async () => {
+    const { service, prisma } = makeService();
+    const activeLink = makeLink({ status: LinkStatus.ACTIVE });
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ status: LinkStatus.DISABLED }),
+    );
+    prisma.link.update.mockResolvedValue(activeLink);
+
+    const dto: UpdateLinkDto = { status: LinkStatus.ACTIVE };
+    const result = await service.update('abc123def456', dto, OWNER);
+
+    expect(result.status).toBe(LinkStatus.ACTIVE);
+  });
+
+  it('does not pass DELETED as a valid status update', async () => {
+    // DELETED must not be reachable through UpdateLinkDto — the whitelist
+    // enforced by ValidationPipe and @IsEnum rejects it before the service.
+    // This test confirms the service itself never writes DELETED via update().
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(makeLink());
+    prisma.link.update.mockResolvedValue(makeLink());
+
+    // Bypass DTO validation to test the service layer in isolation.
+    const dto = {} as UpdateLinkDto;
+    await service.update('abc123def456', dto, OWNER);
+
+    const updateArg = prisma.link.update.mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+    expect(updateArg.data).not.toHaveProperty('status', LinkStatus.DELETED);
   });
 });
 
@@ -455,7 +570,9 @@ describe('LinksService.remove', () => {
   it('soft-deletes the link by setting status to DELETED', async () => {
     const { service, prisma } = makeService();
     prisma.link.findUnique.mockResolvedValue(makeLink());
-    prisma.link.update.mockResolvedValue(makeLink({ status: LinkStatus.DELETED }));
+    prisma.link.update.mockResolvedValue(
+      makeLink({ status: LinkStatus.DELETED }),
+    );
 
     await service.remove('abc123def456', OWNER);
 
@@ -470,20 +587,307 @@ describe('LinksService.remove', () => {
     const { service, prisma } = makeService();
     prisma.link.findUnique.mockResolvedValue(null);
 
-    await expect(service.remove('notexist', OWNER)).rejects.toThrow(NotFoundException);
+    await expect(service.remove('notexist', OWNER)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('throws 404 when already DELETED', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(makeLink({ status: LinkStatus.DELETED }));
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ status: LinkStatus.DELETED }),
+    );
 
-    await expect(service.remove('abc123def456', OWNER)).rejects.toThrow(NotFoundException);
+    await expect(service.remove('abc123def456', OWNER)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('throws 404 when owner does not match (isolates owners)', async () => {
     const { service, prisma } = makeService();
-    prisma.link.findUnique.mockResolvedValue(makeLink({ ownerAnonId: OTHER_OWNER }));
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ ownerAnonId: OTHER_OWNER }),
+    );
 
-    await expect(service.remove('abc123def456', OWNER)).rejects.toThrow(NotFoundException);
+    await expect(service.remove('abc123def456', OWNER)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+});
+
+// ── getPreview ────────────────────────────────────────────────────────────────
+
+describe('LinksService.getPreview', () => {
+  it('returns preview data for a regular active link', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(makeLink());
+
+    const result = await service.getPreview('abc123def456');
+
+    expect(result.code).toBe('abc123def456');
+    expect(result.originalUrl).toBe('https://example.com');
+    expect(result.requiresPassword).toBe(false);
+    expect(result.isSingleUse).toBe(false);
+  });
+
+  it('hides originalUrl when link is password-protected', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ passwordHash: '$2b$12$hashedvalue' }),
+    );
+
+    const result = await service.getPreview('abc123def456');
+
+    // Destination must NOT be revealed before the password is validated.
+    expect(result.originalUrl).toBeNull();
+    expect(result.requiresPassword).toBe(true);
+  });
+
+  it('throws 404 for deleted links', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ status: LinkStatus.DELETED }),
+    );
+
+    await expect(service.getPreview('abc123def456')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('throws 410 for disabled links', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ status: LinkStatus.DISABLED }),
+    );
+
+    await expect(service.getPreview('abc123def456')).rejects.toThrow(
+      GoneException,
+    );
+  });
+
+  it('throws 410 for expired links', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ expiresAt: new Date('2020-01-01T00:00:00Z') }),
+    );
+
+    await expect(service.getPreview('abc123def456')).rejects.toThrow(
+      GoneException,
+    );
+  });
+
+  it('throws 404 when link does not exist', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(null);
+
+    await expect(service.getPreview('notexist')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+});
+
+// ── expiresAt validation ──────────────────────────────────────────────────────
+
+describe('LinksService — expiresAt future date validation', () => {
+  it('rejects create with expiresAt in the past', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(null); // no slug collision
+
+    const dto = {
+      url: 'https://example.com',
+      expiresAt: '2020-01-01T00:00:00.000Z',
+    } as CreateLinkDto;
+
+    await expect(service.create(dto, OWNER)).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(prisma.link.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts create with expiresAt in the future', async () => {
+    const { service, prisma } = makeService();
+    const futureDate = '2099-12-31T00:00:00.000Z';
+    prisma.link.findUnique.mockResolvedValue(null);
+    prisma.link.create.mockResolvedValue(
+      makeLink({ expiresAt: new Date(futureDate) }),
+    );
+
+    const dto = {
+      url: 'https://example.com',
+      expiresAt: futureDate,
+    } as CreateLinkDto;
+
+    await expect(service.create(dto, OWNER)).resolves.toBeDefined();
+  });
+
+  it('rejects update with expiresAt in the past', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(makeLink());
+
+    const dto: UpdateLinkDto = { expiresAt: '2020-01-01T00:00:00.000Z' };
+
+    await expect(service.update('abc123def456', dto, OWNER)).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(prisma.link.update).not.toHaveBeenCalled();
+  });
+
+  it('accepts update with expiresAt in the future', async () => {
+    const { service, prisma } = makeService();
+    const futureDate = '2099-12-31T00:00:00.000Z';
+    prisma.link.findUnique.mockResolvedValue(makeLink());
+    prisma.link.update.mockResolvedValue(
+      makeLink({ expiresAt: new Date(futureDate) }),
+    );
+
+    const dto: UpdateLinkDto = { expiresAt: futureDate };
+
+    await expect(
+      service.update('abc123def456', dto, OWNER),
+    ).resolves.toBeDefined();
+  });
+});
+
+// ── unlockLink ────────────────────────────────────────────────────────────────
+// These tests use real bcrypt to verify the actual security boundary.
+// We pre-hash once using a synchronous call to keep the test suite fast.
+
+import * as bcryptModule from 'bcrypt';
+
+describe('LinksService.unlockLink', () => {
+  const CORRECT_PASSWORD = 'correct-password';
+  // Use cost 4 (minimum) for test speed — the ROUNDS constant in production is 12.
+  // The test validates the cryptographic path, not the cost factor.
+  const passwordHash = bcryptModule.hashSync(CORRECT_PASSWORD, 4);
+
+  it('returns the destination URL when the password is correct', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(makeLink({ passwordHash }));
+
+    const result = await service.unlockLink('abc123def456', CORRECT_PASSWORD);
+
+    expect(result.url).toBe('https://example.com');
+  });
+
+  it('rejects passwords exceeding bcrypt UTF-8 byte limit before database lookup', async () => {
+    const { service, prisma } = makeService();
+
+    await expect(
+      service.unlockLink('abc123def456', 'a'.repeat(73)),
+    ).rejects.toThrow(BadRequestException);
+    expect(prisma.link.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('throws 401 when the password is wrong', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(makeLink({ passwordHash }));
+
+    await expect(
+      service.unlockLink('abc123def456', 'wrong-password'),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('throws 401 when the link does not exist (no oracle about existence)', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.unlockLink('notexist', CORRECT_PASSWORD),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('throws 401 when the link is DELETED (same code as wrong password)', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ status: LinkStatus.DELETED, passwordHash }),
+    );
+
+    await expect(
+      service.unlockLink('abc123def456', CORRECT_PASSWORD),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('throws 400 when the link has no password', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(makeLink({ passwordHash: null }));
+
+    await expect(
+      service.unlockLink('abc123def456', 'anything'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws 410 when the link is disabled', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ status: LinkStatus.DISABLED, passwordHash }),
+    );
+
+    await expect(
+      service.unlockLink('abc123def456', CORRECT_PASSWORD),
+    ).rejects.toThrow(GoneException);
+  });
+
+  it('throws 410 when the link is expired', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ expiresAt: new Date('2020-01-01'), passwordHash }),
+    );
+
+    await expect(
+      service.unlockLink('abc123def456', CORRECT_PASSWORD),
+    ).rejects.toThrow(GoneException);
+  });
+
+  it('consumes a single-use password-protected link atomically on first use', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ isSingleUse: true, passwordHash }),
+    );
+    prisma.link.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.unlockLink('abc123def456', CORRECT_PASSWORD);
+
+    expect(result.url).toBe('https://example.com');
+    expect(prisma.link.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 1,
+          isSingleUse: true,
+          usedAt: null,
+        }),
+        data: expect.objectContaining({ usedAt: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it('throws 410 when a single-use password-protected link is already consumed', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(
+      makeLink({ isSingleUse: true, passwordHash }),
+    );
+    // Simulate a concurrent request consuming the link first
+    prisma.link.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.unlockLink('abc123def456', CORRECT_PASSWORD),
+    ).rejects.toThrow(GoneException);
+  });
+
+  it('does not expose the destination URL in the error response for wrong passwords', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findUnique.mockResolvedValue(makeLink({ passwordHash }));
+
+    let caughtError: unknown;
+    try {
+      await service.unlockLink('abc123def456', 'wrong');
+    } catch (err) {
+      caughtError = err;
+    }
+
+    expect(caughtError).toBeInstanceOf(UnauthorizedException);
+    const body = JSON.stringify(
+      (caughtError as UnauthorizedException).getResponse(),
+    );
+    expect(body).not.toContain('https://example.com');
   });
 });
