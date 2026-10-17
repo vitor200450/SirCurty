@@ -16,3 +16,9 @@ cookies.txt
 
 # Generated Prisma Client
 /src/generated/prisma/
+
+# Local AI development tools and skills
+/.agents/
+/.claude/
+/.windsurf/
+/skills-lock.json
