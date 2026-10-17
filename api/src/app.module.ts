@@ -1,3 +1,4 @@
+import { ObservabilityModule } from './observability/observability.module.js';
 import {
   MiddlewareConsumer,
   Module,
@@ -24,6 +25,8 @@ import { AnonymousMiddleware } from './modules/auth/anonymous.middleware.js';
       ignoreEnvFile: process.env.NODE_ENV === 'test',
       validationSchema: envValidationSchema,
     }),
+
+    ObservabilityModule,
 
     // Rate limiting — two named throttlers applied globally via ThrottlerGuard.
     //

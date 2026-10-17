@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: observability
+
+resources:
+  - namespace.yaml
+  # OTel Collector
+  - otel-collector/configmap.yaml
+  - otel-collector/deployment.yaml
+  - otel-collector/service.yaml
+  # Tempo
+  - tempo/configmap.yaml
+  - tempo/pvc.yaml
+  - tempo/deployment.yaml
+  - tempo/service.yaml
+  # Grafana
+  - grafana/configmap-datasources.yaml
+  - grafana/configmap-dashboard-provisioning.yaml
+  - grafana/pvc.yaml
+  - grafana/deployment.yaml
+  - grafana/service.yaml
+  # Ingresses
+  - ingress-grafana.yaml
+  - ingress-otel.yaml
+
+# Generates the grafana-dashboards ConfigMap from the JSON files.
+# Kustomize hashes the content so Grafana pods restart automatically on dashboard changes.
+configMapGenerator:
+  - name: grafana-dashboards
+    namespace: observability
+    files:
+      - grafana/dashboards/overview.json
+      - grafana/dashboards/links.json
+      - grafana/dashboards/traces.json
+    options:
+      disableNameSuffixHash: true   # keep name stable so the volume mount always resolves

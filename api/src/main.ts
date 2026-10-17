@@ -1,3 +1,4 @@
+import './observability/tracing.js';
 import { NestFactory, Reflector } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import {
