@@ -1,4 +1,5 @@
 import { ObservabilityModule } from './observability/observability.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 import {
   MiddlewareConsumer,
   Module,
@@ -26,6 +27,7 @@ import { AnonymousMiddleware } from './modules/auth/anonymous.middleware.js';
       validationSchema: envValidationSchema,
     }),
 
+    AuthModule,
     ObservabilityModule,
 
     // Rate limiting — two named throttlers applied globally via ThrottlerGuard.
@@ -42,7 +44,7 @@ import { AnonymousMiddleware } from './modules/auth/anonymous.middleware.js';
     // supply the connection URL via a new REDIS_URL env var.
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60_000, limit: 100 },
-      { name: 'unlock',  ttl: 60_000, limit: 10 },
+      { name: 'unlock', ttl: 60_000, limit: 10 },
     ]),
 
     // Database — global module, PrismaService available everywhere

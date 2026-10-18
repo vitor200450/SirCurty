@@ -14,27 +14,48 @@ import {
 } from '@nestjs/common';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
-import { LinksService } from './links.service.js';
+
+import { SessionService } from '../auth/session.service.js';
+import { getCookie, SESSION_COOKIE_NAME } from '../auth/session-cookie.js';
+import { ClicksService } from '../clicks/clicks.service.js';
 import { CreateLinkDto } from './dto/create-link.dto.js';
-import { UpdateLinkDto } from './dto/update-link.dto.js';
+import { LinkPreviewDto } from './dto/link-preview.dto.js';
 import {
   CreateLinkResponseDto,
   LinkResponseDto,
 } from './dto/link-response.dto.js';
-import { LinkPreviewDto } from './dto/link-preview.dto.js';
 import { UnlockLinkDto, UnlockLinkResponseDto } from './dto/unlock-link.dto.js';
-import { ClicksService } from '../clicks/clicks.service.js';
+import { UpdateLinkDto } from './dto/update-link.dto.js';
+import type { LinkOwner } from './links.service.js';
+import { LinksService } from './links.service.js';
 
 /**
- * Extracts the ownerAnonId injected by AnonymousMiddleware.
- * Throws 401 if the middleware has not run (misconfiguration guard).
+ * Resolves the current link owner from the authenticated session or
+ * the anonymous identity injected by AnonymousMiddleware.
+ *
+ * If a session cookie is present, it must be valid. Invalid or expired
+ * sessions must not silently fall back to anonymous ownership.
+ *
+ * Throws UnauthorizedException if neither identity can be resolved.
  */
-function requireOwnerAnonId(req: Request): string {
-  const id = req.ownerAnonId;
-  if (!id) {
+async function resolveLinkOwner(
+  req: Request,
+  sessionService: SessionService,
+): Promise<LinkOwner> {
+  const sessionToken = getCookie(req.headers.cookie, SESSION_COOKIE_NAME);
+
+  if (sessionToken) {
+    const user = await sessionService.validate(sessionToken);
+    return { userId: user.id };
+  }
+
+  const anonId = req.ownerAnonId;
+
+  if (!anonId) {
     throw new UnauthorizedException('Anonymous identity could not be resolved');
   }
-  return id;
+
+  return { anonId };
 }
 
 @Controller('links')
@@ -45,54 +66,56 @@ export class LinksController {
   constructor(
     private readonly linksService: LinksService,
     private readonly clicksService: ClicksService,
+    private readonly sessionService: SessionService,
   ) {}
 
   /**
    * POST /api/links
-   * Create a new short link for the current anonymous owner.
-   * Returns 201 with { code, shortUrl, qr }.
+   *
+   * Creates a short link for the authenticated user or anonymous visitor.
+   * Returns HTTP 201 with the created link response.
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(
+  async create(
     @Body() dto: CreateLinkDto,
     @Req() req: Request,
   ): Promise<CreateLinkResponseDto> {
-    return this.linksService.create(dto, requireOwnerAnonId(req));
+    const owner = await resolveLinkOwner(req, this.sessionService);
+    return this.linksService.create(dto, owner);
   }
 
   /**
    * GET /api/links
-   * List all non-deleted links owned by the current anonymous owner.
+   *
+   * Returns all non-deleted links belonging to the current owner,
+   * ordered by creation date.
    */
   @Get()
-  findAll(@Req() req: Request): Promise<LinkResponseDto[]> {
-    return this.linksService.findAll(requireOwnerAnonId(req));
+  async findAll(@Req() req: Request): Promise<LinkResponseDto[]> {
+    const owner = await resolveLinkOwner(req, this.sessionService);
+    return this.linksService.findAll(owner);
   }
 
   /**
    * GET /api/links/:code/preview
-   * Public endpoint — no owner check required.
-   * Returns the data needed for the frontend interstitial screen.
-   * Never exposes owner IDs, password hashes or internal fields.
-   * originalUrl is null when the link requires a password.
+   *
+   * Public endpoint that returns the data required by the link preview
+   * interstitial. Does not expose owner IDs, password hashes, or other
+   * internal fields. Password-protected destinations remain hidden.
    */
   @Get(':code/preview')
-  getPreview(@Param('code') code: string): Promise<LinkPreviewDto> {
+  async preview(@Param('code') code: string): Promise<LinkPreviewDto> {
     return this.linksService.getPreview(code);
   }
 
   /**
    * POST /api/links/:code/unlock
-   * Public endpoint — no owner check required.
-   * Accepts a password and returns the destination URL if correct.
-   * Returns 401 for wrong passwords (same code as "not found" to avoid
-   * confirming existence of password-protected links to attackers).
-   * Returns 400 if the link does not have a password.
-   * Returns 410 if the link is expired or disabled.
    *
-   * Uses the "unlock" throttler (10 req/min per IP) — stricter than the
-   * global default — to slow brute-force password attempts.
+   * Public endpoint that verifies the password for a protected link.
+   * Records a click only after a successful password verification.
+   *
+   * Uses a stricter rate limit to mitigate password-guessing attempts.
    */
   @Post(':code/unlock')
   @HttpCode(HttpStatus.OK)
@@ -104,13 +127,16 @@ export class LinksController {
     @Req() req: Request,
   ): Promise<UnlockLinkResponseDto> {
     const result = await this.linksService.unlockLink(code, dto.password);
-    // Count only successful password unlocks as clicks. Failed attempts must
-    // not inflate product analytics. Do not make a successful unlock fail if
-    // the asynchronous analytics write fails.
+
     this.recordClickSilently(result.linkId, req);
+
     return result;
   }
 
+  /**
+   * Records a click without allowing analytics failures to affect
+   * the successful link-unlock response.
+   */
   private recordClickSilently(linkId: number, req: Request): void {
     this.clicksService
       .record(linkId, {
@@ -120,39 +146,49 @@ export class LinksController {
       })
       .catch((err: unknown) => {
         this.logger.warn(
-          `Failed to record unlock click for link ${linkId}: ${err instanceof Error ? err.message : String(err)}`,
+          `Failed to record unlock click for link ${linkId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
         );
       });
   }
 
   /**
    * GET /api/links/:code
-   * Get details of a single link owned by the current anonymous owner.
+   *
+   * Returns the details of a link belonging to the current owner.
+   * Throws NotFoundException if the link does not exist or is not owned
+   * by the current user or anonymous visitor.
    */
   @Get(':code')
-  findOne(
+  async findOne(
     @Param('code') code: string,
     @Req() req: Request,
   ): Promise<LinkResponseDto> {
-    return this.linksService.findOne(code, requireOwnerAnonId(req));
+    const owner = await resolveLinkOwner(req, this.sessionService);
+    return this.linksService.findOne(code, owner);
   }
 
   /**
    * PATCH /api/links/:code
-   * Update allowed fields (url, expiresAt, singleUse) of an owned link.
+   *
+   * Updates the permitted fields of a link belonging to the current owner.
    */
   @Patch(':code')
-  update(
+  async update(
     @Param('code') code: string,
     @Body() dto: UpdateLinkDto,
     @Req() req: Request,
   ): Promise<LinkResponseDto> {
-    return this.linksService.update(code, dto, requireOwnerAnonId(req));
+    const owner = await resolveLinkOwner(req, this.sessionService);
+    return this.linksService.update(code, dto, owner);
   }
 
   /**
    * DELETE /api/links/:code
-   * Soft-delete an owned link (sets status to DELETED). Returns 204.
+   *
+   * Soft-deletes a link belonging to the current owner by setting its
+   * status to DELETED. Returns HTTP 204 on success.
    */
   @Delete(':code')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -160,6 +196,7 @@ export class LinksController {
     @Param('code') code: string,
     @Req() req: Request,
   ): Promise<void> {
-    return this.linksService.remove(code, requireOwnerAnonId(req));
+    const owner = await resolveLinkOwner(req, this.sessionService);
+    return this.linksService.remove(code, owner);
   }
 }
