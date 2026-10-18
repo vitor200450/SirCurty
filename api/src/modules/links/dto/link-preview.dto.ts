@@ -1,3 +1,5 @@
+import { LinkStatus } from '../../../generated/prisma/client.js';
+
 /**
  * Public shape returned by GET /api/links/:code/preview.
  * Only exposes data needed for the frontend interstitial screen.
@@ -26,4 +28,10 @@ export class LinkPreviewDto {
 
   /** Whether this link self-destructs after the first use. */
   isSingleUse!: boolean;
+
+  /** Current status of the link. */
+  status!: LinkStatus;
+
+  /** Whether this link has already been consumed. */
+  isConsumed!: boolean;
 }

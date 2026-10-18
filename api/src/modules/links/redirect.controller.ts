@@ -1,19 +1,16 @@
-import { Controller, Get, Logger, Param, Redirect, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpException,
+  Logger,
+  Param,
+  Redirect,
+  Req,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { LinksService } from './links.service.js';
 import { ClicksService } from '../clicks/clicks.service.js';
 
-/**
- * Handles GET /s/:code — the short-link redirect endpoint.
- *
- * This controller is intentionally placed outside the global '/api' prefix
- * by excluding '/s/*' in main.ts setGlobalPrefix options.
- *
- * The route resolves the original URL, validates the link, issues a 302
- * redirect, and then asynchronously records a click. Click recording is
- * intentionally fire-and-forget: a failure does not affect the 302 response
- * and never causes a double-consumption of single-use links.
- */
 @Controller('s')
 export class RedirectController {
   private readonly logger = new Logger(RedirectController.name);
@@ -25,14 +22,10 @@ export class RedirectController {
 
   /**
    * GET /s/:code
-   * Validates and redirects to the original URL.
-   * Returns 302 on success.
-   * Returns 404 for unknown/deleted links, 410 for expired/disabled,
-   * 403 for password-protected links.
    *
-   * After resolving the redirect target, records a click asynchronously.
-   * The click includes a hashed IP, user-agent and referrer.
-   * Errors during click recording are logged but do not affect the redirect.
+   * Redireciona para o destino quando o link está disponível.
+   * Links inexistentes, expirados, desativados ou já utilizados
+   * são encaminhados para a página visual de link indisponível.
    */
   @Get(':code')
   @Redirect()
@@ -40,20 +33,74 @@ export class RedirectController {
     @Param('code') code: string,
     @Req() req: Request,
   ): Promise<{ url: string; statusCode: number }> {
-    const { url, linkId } = await this.linksService.getRedirectTarget(code);
+    try {
+      const { url, linkId } = await this.linksService.getRedirectTarget(code);
 
-    // Record the click after the redirect target is confirmed. This runs
-    // after the return value is prepared, so a click-recording failure cannot
-    // cause a double-consumption of a single-use link or alter the HTTP response.
-    this.recordClickSilently(linkId, req);
+      // Registra o clique sem atrasar o redirecionamento.
+      // A validação e o consumo do link continuam sob responsabilidade
+      // do LinksService.
+      this.recordClickSilently(linkId, req);
 
-    return { url, statusCode: 302 };
+      return {
+        url,
+        statusCode: 302,
+      };
+    } catch (error: unknown) {
+      if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        // Link inexistente, expirado, desativado ou já utilizado.
+        if (status === 404 || status === 410) {
+          this.logger.warn(`Link indisponível: ${code} (HTTP ${status}).`);
+
+          const frontendUrl = this.getFrontendUrl();
+          const destination = new URL('/link-destruido', frontendUrl);
+
+          destination.searchParams.set('reason', 'indisponivel');
+          destination.searchParams.set('code', code);
+
+          return {
+            url: destination.toString(),
+            statusCode: 302,
+          };
+        }
+
+        // Links protegidos por senha devem abrir a tela do frontend
+        // responsável por solicitar a senha.
+        if (status === 403) {
+          const frontendUrl = this.getFrontendUrl();
+          const destination = new URL(
+            `/s/${encodeURIComponent(code)}`,
+            frontendUrl,
+          );
+
+          return {
+            url: destination.toString(),
+            statusCode: 302,
+          };
+        }
+      }
+
+      // Mantém o tratamento padrão do NestJS para erros inesperados.
+      throw error;
+    }
   }
 
   /**
-   * Records a click without awaiting the result.
-   * Any error is logged at the warn level and swallowed — the redirect has
-   * already been issued or is about to be issued by NestJS's @Redirect() handler.
+   * Obtém a URL base do frontend.
+   *
+   * Configure FRONTEND_BASE_URL no ambiente da API.
+   */
+  private getFrontendUrl(): string {
+    const configuredUrl =
+      process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
+
+    return configuredUrl.endsWith('/') ? configuredUrl : `${configuredUrl}/`;
+  }
+
+  /**
+   * Registra cliques de forma assíncrona.
+   * Falhas no registro não afetam o redirecionamento.
    */
   private recordClickSilently(linkId: number, req: Request): void {
     this.clicksService
@@ -64,7 +111,9 @@ export class RedirectController {
       })
       .catch((err: unknown) => {
         this.logger.warn(
-          `Failed to record click for link ${linkId}: ${err instanceof Error ? err.message : String(err)}`,
+          `Falha ao registrar clique no link ${linkId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
         );
       });
   }
