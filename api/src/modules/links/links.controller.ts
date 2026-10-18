@@ -120,7 +120,7 @@ export class LinksController {
       })
       .catch((err: unknown) => {
         this.logger.warn(
-          `Failed to record unlock click for link ${linkId}: ${err instanceof Error ? err.message : String(err)}`,
+          `Falha ao registrar o clique de desbloqueio do link ${linkId}: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
   }

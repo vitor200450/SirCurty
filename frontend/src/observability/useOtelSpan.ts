@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
-import { SpanStatusCode, SpanKind, Attributes } from '@opentelemetry/api';
-import { tracer } from './tracing';
+import { useCallback } from "react";
+import { SpanStatusCode, SpanKind } from "@opentelemetry/api";
+import type { Attributes } from "@opentelemetry/api";
+import { tracer } from "./tracing";
 
 /**
  * useOtelSpan — React hook for manual OTel spans in the browser.
@@ -49,6 +50,7 @@ import { tracer } from './tracing';
  *   The FetchInstrumentation already handles this automatically —
  *   no manual span needed.
  */
+
 export function useOtelSpan() {
   const withSpan = useCallback(
     async <T>(
