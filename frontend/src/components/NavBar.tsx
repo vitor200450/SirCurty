@@ -1,0 +1,1 @@
+export default function Navbar({ isDarkMode, toggleTheme }: any) {
