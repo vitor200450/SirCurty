@@ -26,6 +26,9 @@ export const envValidationSchema = Joi.object({
   // Example: "http://localhost:5173,http://sircurty.local"
   ALLOWED_ORIGINS: Joi.string().default('http://localhost:5173'),
 
+  // Google Login - Client_ID"
+  GOOGLE_CLIENT_ID: Joi.string().trim().min(1).required(),
+
   // Public base URL used to build short links returned in API responses.
   // Must NOT have a trailing slash.
   // Example: "http://localhost:3000" (dev) or "https://sircurty.local" (k8s)

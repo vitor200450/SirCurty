@@ -47,7 +47,9 @@ export class UpdateLinkDto {
    * Update the expiry date (ISO 8601), or send null to clear the expiry.
    * This is the only field that explicitly accepts null.
    */
-  @ValidateIf((o: UpdateLinkDto) => o.expiresAt !== undefined && o.expiresAt !== null)
+  @ValidateIf(
+    (o: UpdateLinkDto) => o.expiresAt !== undefined && o.expiresAt !== null,
+  )
   @IsDateString({}, { message: 'expiresAt must be an ISO 8601 date string' })
   expiresAt?: string | null;
 

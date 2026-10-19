@@ -8,6 +8,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import { AuthProvider } from "./features/auth/AuthProvider";
 
 import App from "./App";
 import Preview from "./components/Preview";
@@ -36,14 +38,18 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<App />} />
-          <Route path="/s/:code" element={<Preview />} />
-          <Route path="/link-bloqueado" element={<BlockedLinkPage />} />
-        </Routes>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ""}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<App />} />
+              <Route path="/s/:code" element={<Preview />} />
+              <Route path="/link-bloqueado" element={<BlockedLinkPage />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+    </GoogleOAuthProvider>
   </StrictMode>,
 );
