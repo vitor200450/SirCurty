@@ -1,3 +1,9 @@
+// OpenTelemetry must be imported before any other module: the browser SDK
+// patches global APIs (fetch, XHR) at require-time, so a late import misses
+// every instrumented call. ZoneContextManager requires zone.js.
+import "zone.js";
+import "./observability/tracing";
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
