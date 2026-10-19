@@ -238,7 +238,7 @@
       "id": 7,
       "options": {},
       "title": "Traces recentes (API)",
-      "type": "traces",
+      "type": "table",
       "targets": [
         {
           "datasource": { "type": "tempo", "uid": "tempo" },

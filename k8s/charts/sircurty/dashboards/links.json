@@ -286,7 +286,7 @@
       "id": 8,
       "options": {},
       "title": "Operações de links",
-      "type": "traces",
+      "type": "table",
       "targets": [
         {
           "datasource": { "type": "tempo", "uid": "tempo" },
