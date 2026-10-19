@@ -12,9 +12,8 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Throttle, SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
-
 import { SessionService } from '../auth/session.service.js';
 import { getCookie, SESSION_COOKIE_NAME } from '../auth/session-cookie.js';
 import { ClicksService } from '../clicks/clicks.service.js';
@@ -52,7 +51,9 @@ async function resolveLinkOwner(
   const anonId = req.ownerAnonId;
 
   if (!anonId) {
-    throw new UnauthorizedException('Anonymous identity could not be resolved');
+    throw new UnauthorizedException(
+      'Anonymous identity could not be resolved',
+    );
   }
 
   return { anonId };
@@ -71,7 +72,6 @@ export class LinksController {
 
   /**
    * POST /api/links
-   *
    * Creates a short link for the authenticated user or anonymous visitor.
    * Returns HTTP 201 with the created link response.
    */
@@ -87,9 +87,7 @@ export class LinksController {
 
   /**
    * GET /api/links
-   *
-   * Returns all non-deleted links belonging to the current owner,
-   * ordered by creation date.
+   * Lists all non-deleted links belonging to the current owner.
    */
   @Get()
   async findAll(@Req() req: Request): Promise<LinkResponseDto[]> {
@@ -99,22 +97,17 @@ export class LinksController {
 
   /**
    * GET /api/links/:code/preview
-   *
-   * Public endpoint that returns the data required by the link preview
-   * interstitial. Does not expose owner IDs, password hashes, or other
-   * internal fields. Password-protected destinations remain hidden.
+   * Public endpoint. Does not expose owner IDs, password hashes,
+   * or other internal fields. Password-protected destinations remain hidden.
    */
   @Get(':code/preview')
-  async preview(@Param('code') code: string): Promise<LinkPreviewDto> {
+  getPreview(@Param('code') code: string): Promise<LinkPreviewDto> {
     return this.linksService.getPreview(code);
   }
 
   /**
    * POST /api/links/:code/unlock
-   *
-   * Public endpoint that verifies the password for a protected link.
-   * Records a click only after a successful password verification.
-   *
+   * Public endpoint. Records a click only after a successful password check.
    * Uses a stricter rate limit to mitigate password-guessing attempts.
    */
   @Post(':code/unlock')
@@ -128,15 +121,12 @@ export class LinksController {
   ): Promise<UnlockLinkResponseDto> {
     const result = await this.linksService.unlockLink(code, dto.password);
 
+    // Analytics failures must not affect a successful unlock response.
     this.recordClickSilently(result.linkId, req);
 
     return result;
   }
 
-  /**
-   * Records a click without allowing analytics failures to affect
-   * the successful link-unlock response.
-   */
   private recordClickSilently(linkId: number, req: Request): void {
     this.clicksService
       .record(linkId, {
@@ -146,7 +136,7 @@ export class LinksController {
       })
       .catch((err: unknown) => {
         this.logger.warn(
-          `Failed to record unlock click for link ${linkId}: ${
+          `Falha ao registrar o clique de desbloqueio do link ${linkId}: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );
@@ -155,10 +145,7 @@ export class LinksController {
 
   /**
    * GET /api/links/:code
-   *
-   * Returns the details of a link belonging to the current owner.
-   * Throws NotFoundException if the link does not exist or is not owned
-   * by the current user or anonymous visitor.
+   * Returns a link belonging to the authenticated user or anonymous visitor.
    */
   @Get(':code')
   async findOne(
@@ -171,8 +158,7 @@ export class LinksController {
 
   /**
    * PATCH /api/links/:code
-   *
-   * Updates the permitted fields of a link belonging to the current owner.
+   * Updates permitted fields of a link belonging to the current owner.
    */
   @Patch(':code')
   async update(
@@ -186,9 +172,7 @@ export class LinksController {
 
   /**
    * DELETE /api/links/:code
-   *
-   * Soft-deletes a link belonging to the current owner by setting its
-   * status to DELETED. Returns HTTP 204 on success.
+   * Soft-deletes a link belonging to the current owner. Returns HTTP 204.
    */
   @Delete(':code')
   @HttpCode(HttpStatus.NO_CONTENT)

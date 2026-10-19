@@ -28,7 +28,7 @@ import {
 import { LinkPreviewDto } from './dto/link-preview.dto.js';
 import { UnlockLinkResponseDto } from './dto/unlock-link.dto.js';
 
-/** bcrypt cost factor. 12 rounds is the OWASP minimum recommendation for 2024. */
+/** Fator de custo do bcrypt. */
 const BCRYPT_ROUNDS = 12;
 const BCRYPT_MAX_PASSWORD_BYTES = 72;
 
@@ -60,83 +60,90 @@ export class LinksService {
     private readonly config: ConfigService,
   ) {}
 
-  // ── Public preview ─────────────────────────────────────────────────────
+  // ── Preview público ────────────────────────────────────────────────────
 
   /**
-   * Returns the public preview data for a link.
-   * Used by the frontend interstitial before redirecting the visitor.
-   * Does NOT require owner authentication — any visitor may call this.
-   * Does NOT expose owner IDs, password hashes or internal fields.
+   * Retorna os dados públicos de visualização de um link.
+   * Não exige autenticação do proprietário.
+   * Não expõe IDs de proprietários, hashes de senha ou campos internos.
    *
-   * Throws NotFoundException for non-existent or DELETED links.
-   * Throws GoneException for expired or DISABLED links.
+   * Lança NotFoundException para links inexistentes ou excluídos.
+   * Lança GoneException para links expirados ou desativados.
    */
   async getPreview(code: string): Promise<LinkPreviewDto> {
-    const link = await this.prisma.link.findUnique({ where: { slug: code } });
+    const link = await this.prisma.link.findUnique({
+      where: { slug: code },
+    });
 
     if (!link || link.status === LinkStatus.DELETED) {
-      throw new NotFoundException('Link not found');
+      throw new NotFoundException('Link não encontrado.');
     }
 
     if (link.status === LinkStatus.DISABLED) {
-      throw new GoneException('This link has been disabled');
+      throw new GoneException('Este link está desativado.');
     }
 
-    if (link.expiresAt && link.expiresAt < new Date()) {
-      throw new GoneException('This link has expired');
+    if (link.expiresAt && link.expiresAt <= new Date()) {
+      throw new GoneException('Este link expirou.');
     }
 
     const dto = new LinkPreviewDto();
     dto.code = link.slug;
-    // Do NOT expose the destination URL when the link requires a password.
-    // The caller must verify the password first (POST /api/links/:code/unlock)
-    // before the destination is revealed. Exposing it here would allow any
-    // visitor to bypass the password gate by calling the preview endpoint.
+
+    // Keep the destination hidden until the visitor unlocks a password-protected link.
     dto.originalUrl = link.passwordHash !== null ? null : link.originalUrl;
+
     dto.requiresPassword = link.passwordHash !== null;
     dto.expiresAt = link.expiresAt;
     dto.isSingleUse = link.isSingleUse;
+
+    // Expose the current state so the frontend can decide whether to allow redirection.
+    dto.status = link.status;
+    dto.isConsumed = link.usedAt !== null;
+
     return dto;
   }
 
-  /**
-   * Returns the validated redirect target URL and link ID for GET /s/:code.
-   *
-   * Validates existence, status, expiry and protocol.
-   * Password-protected links are blocked here and must use the unlock endpoint.
-   * Single-use links are consumed atomically using a conditional update,
-   * preventing multiple successful consumptions under concurrent requests.
-   *
-   * Returns { url, linkId } on success. Throws on any validation failure.
-   * The linkId is used by the caller to record a click after the redirect.
-   */
+  // ── Redirecionamento público ───────────────────────────────────────────
 
+  /**
+   * Valida o link e retorna sua URL de destino e seu ID.
+   * Links protegidos por senha devem ser desbloqueados pelo endpoint próprio.
+   * Links de uso único são consumidos atomicamente.
+   */
   async getRedirectTarget(
     code: string,
   ): Promise<{ url: string; linkId: number }> {
-    const link = await this.prisma.link.findUnique({ where: { slug: code } });
+    const link = await this.prisma.link.findUnique({
+      where: { slug: code },
+    });
 
     if (!link || link.status === LinkStatus.DELETED) {
-      throw new NotFoundException('Link not found');
+      throw new NotFoundException('Link não encontrado.');
     }
 
     if (link.status === LinkStatus.DISABLED) {
-      throw new GoneException('This link has been disabled');
+      throw new GoneException('Este link está desativado.');
     }
 
     if (link.expiresAt && link.expiresAt <= new Date()) {
-      throw new GoneException('This link has expired');
+      throw new GoneException('Este link expirou.');
     }
 
     if (link.passwordHash !== null) {
-      throw new ForbiddenException('This link requires a password');
+      throw new ForbiddenException(
+        'Este link está protegido por senha. Informe a senha para continuar.',
+      );
     }
 
     const url = link.originalUrl;
 
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      this.logger.error(`Link ${code} has an invalid stored URL protocol`);
-      throw new BadRequestException('Link destination is not a valid URL');
+      this.logger.error(`O link ${code} possui um protocolo de URL inválido.`);
+
+      throw new BadRequestException(
+        'O destino deste link não é uma URL válida.',
+      );
     }
 
     if (link.isSingleUse) {
@@ -158,15 +165,18 @@ export class LinksService {
 
       if (result.count !== 1) {
         throw new GoneException(
-          'This single-use link has already been used or is no longer available',
+          'Este link de uso único já foi utilizado ou não está mais disponível.',
         );
       }
     }
 
-    return { url, linkId: link.id };
+    return {
+      url,
+      linkId: link.id,
+    };
   }
 
-  // ── Create ─────────────────────────────────────────────────────────────
+  // ── Criação ────────────────────────────────────────────────────────────
 
   async create(
     dto: CreateLinkDto,
@@ -177,20 +187,21 @@ export class LinksService {
       Buffer.byteLength(dto.password, 'utf8') > BCRYPT_MAX_PASSWORD_BYTES
     ) {
       throw new BadRequestException(
-        'password must not exceed 72 bytes when encoded as UTF-8',
+        'A senha não pode exceder 72 bytes quando codificada em UTF-8.',
       );
     }
 
-    // Validate that expiresAt is in the future when provided.
     if (dto.expiresAt !== undefined && dto.expiresAt !== null) {
       const expiryDate = new Date(dto.expiresAt);
+
       if (Number.isNaN(expiryDate.getTime()) || expiryDate <= new Date()) {
-        throw new BadRequestException('expiresAt must be a valid future date');
+        throw new BadRequestException(
+          'A data de expiração deve ser uma data válida no futuro.',
+        );
       }
     }
 
-    // Hash the password with bcrypt before persisting.
-    // The raw password is never stored — only the bcrypt digest.
+    // Armazena somente o hash da senha.
     const passwordHash =
       typeof dto.password === 'string'
         ? await bcrypt.hash(dto.password, BCRYPT_ROUNDS)
@@ -198,11 +209,8 @@ export class LinksService {
 
     const slug = await this.resolveSlug(dto.customSlug);
 
-    // Insert with retry on concurrent unique-constraint violations (P2002).
-    // For custom slugs, a P2002 means another request took the slug first —
-    // return 409 immediately. For auto-generated slugs, generate a new one
-    // and retry up to MAX_SLUG_RETRIES times.
     let link;
+
     if (dto.customSlug !== undefined) {
       try {
         link = await this.prisma.link.create({
@@ -221,16 +229,17 @@ export class LinksService {
           err instanceof Prisma.PrismaClientKnownRequestError &&
           err.code === 'P2002'
         ) {
-          throw new ConflictException('This custom slug is already taken');
+          throw new ConflictException(
+            'Este endereço personalizado já está em uso.',
+          );
         }
+
         throw err;
       }
     } else {
-      // Auto-slug: retry on P2002 up to MAX_SLUG_RETRIES times.
-      // The initial slug was already generated by resolveSlug; if it
-      // collides at insert time, generate fresh ones here.
       for (let attempt = 0; attempt < MAX_SLUG_RETRIES; attempt++) {
         const candidateSlug = attempt === 0 ? slug : generateSlug();
+
         try {
           link = await this.prisma.link.create({
             data: {
@@ -243,6 +252,7 @@ export class LinksService {
               status: LinkStatus.ACTIVE,
             },
           });
+
           break;
         } catch (err) {
           if (
@@ -250,16 +260,19 @@ export class LinksService {
             err.code === 'P2002'
           ) {
             this.logger.warn(
-              `Slug collision on insert attempt ${attempt + 1}: ${candidateSlug}`,
+              `Colisão de endereço na tentativa ${attempt + 1}: ${candidateSlug}`,
             );
+
             continue;
           }
+
           throw err;
         }
       }
+
       if (!link) {
         throw new ConflictException(
-          'Could not generate a unique slug after multiple attempts. Please try again.',
+          'Não foi possível gerar um endereço exclusivo após várias tentativas. Tente novamente.',
         );
       }
     }
@@ -272,21 +285,15 @@ export class LinksService {
     const response = new CreateLinkResponseDto();
     response.code = link.slug;
     response.shortUrl = `${baseUrl}/s/${link.slug}`;
+
     return response;
   }
 
-  // ── Unlock (password verification) ─────────────────────────────────────
+  // ── Desbloqueio por senha ──────────────────────────────────────────────
 
   /**
-   * Verifies the password for a protected link and returns the destination URL.
-   *
-   * Used by the frontend interstitial after the user enters a password.
-   * On success returns { url } so the client can perform the redirect.
-   * On failure throws 401 — the caller must NOT reveal whether the link
-   * exists via the error status.
-   *
-   * Also validates status, expiry and single-use state before revealing
-   * the destination — a correct password does not override other constraints.
+   * Verifica a senha e retorna a URL de destino.
+   * Valida também o estado, a expiração e o uso único do link.
    */
   async unlockLink(
     code: string,
@@ -294,45 +301,48 @@ export class LinksService {
   ): Promise<UnlockLinkResponseDto> {
     if (Buffer.byteLength(password, 'utf8') > BCRYPT_MAX_PASSWORD_BYTES) {
       throw new BadRequestException(
-        'password must not exceed 72 bytes when encoded as UTF-8',
+        'A senha não pode exceder 72 bytes quando codificada em UTF-8.',
       );
     }
 
-    const link = await this.prisma.link.findUnique({ where: { slug: code } });
+    const link = await this.prisma.link.findUnique({
+      where: { slug: code },
+    });
 
-    // Always respond 401 for any mismatch — don't confirm existence
-    // via different error codes for protected links.
+    // Mantém a mesma resposta para senha incorreta e link inexistente.
     if (!link || link.status === LinkStatus.DELETED) {
-      throw new UnauthorizedException('Invalid password or link not found');
+      throw new UnauthorizedException('Senha inválida ou link não encontrado.');
     }
 
     if (link.passwordHash === null) {
-      // Calling unlock on an unprotected link is a client error.
-      throw new BadRequestException('This link is not password-protected');
+      throw new BadRequestException('Este link não está protegido por senha.');
     }
 
     if (link.status === LinkStatus.DISABLED) {
-      throw new GoneException('This link has been disabled');
+      throw new GoneException('Este link está desativado.');
     }
 
     if (link.expiresAt && link.expiresAt <= new Date()) {
-      throw new GoneException('This link has expired');
+      throw new GoneException('Este link expirou.');
     }
 
-    // Verify the password using bcrypt's constant-time comparison.
     const isValid = await bcrypt.compare(password, link.passwordHash);
+
     if (!isValid) {
-      throw new UnauthorizedException('Invalid password or link not found');
+      throw new UnauthorizedException('Senha inválida ou link não encontrado.');
     }
 
     const url = link.originalUrl;
 
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      this.logger.error(`Link ${code} has an invalid stored URL protocol`);
-      throw new BadRequestException('Link destination is not a valid URL');
+      this.logger.error(`O link ${code} possui um protocolo de URL inválido.`);
+
+      throw new BadRequestException(
+        'O destino deste link não é uma URL válida.',
+      );
     }
 
-    // Consume a single-use link atomically after the password is verified.
+    // Consome o link de uso único atomicamente após validar a senha.
     if (link.isSingleUse) {
       const now = new Date();
 
@@ -344,12 +354,14 @@ export class LinksService {
           status: LinkStatus.ACTIVE,
           OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
         },
-        data: { usedAt: now },
+        data: {
+          usedAt: now,
+        },
       });
 
       if (result.count !== 1) {
         throw new GoneException(
-          'This single-use link has already been used or is no longer available',
+          'Este link de uso único já foi utilizado ou não está mais disponível.',
         );
       }
     }
@@ -357,10 +369,11 @@ export class LinksService {
     const response = new UnlockLinkResponseDto();
     response.url = url;
     response.linkId = link.id;
+
     return response;
   }
 
-  // ── List ───────────────────────────────────────────────────────────────
+  // ── Listagem ───────────────────────────────────────────────────────────
 
   async findAll(owner: LinkOwner): Promise<LinkResponseDto[]> {
     const links = await this.prisma.link.findMany({
@@ -374,7 +387,7 @@ export class LinksService {
     return links.map((link) => LinkResponseDto.from(link));
   }
 
-  // ── Find one ───────────────────────────────────────────────────────────
+  // ── Buscar um link ─────────────────────────────────────────────────────
 
   async findOne(code: string, owner: LinkOwner): Promise<LinkResponseDto> {
     const link = await this.prisma.link.findUnique({
@@ -382,14 +395,15 @@ export class LinksService {
     });
 
     if (!link || link.status === LinkStatus.DELETED) {
-      throw new NotFoundException('Link not found');
+      throw new NotFoundException('Link não encontrado.');
     }
 
     this.assertOwner(link.ownerUserId, link.ownerAnonId, owner);
+
     return LinkResponseDto.from(link);
   }
 
-  // ── Update ─────────────────────────────────────────────────────────────
+  // ── Atualização ────────────────────────────────────────────────────────
 
   async update(
     code: string,
@@ -401,37 +415,43 @@ export class LinksService {
     });
 
     if (!link || link.status === LinkStatus.DELETED) {
-      throw new NotFoundException('Link not found');
+      throw new NotFoundException('Link não encontrado.');
     }
 
     this.assertOwner(link.ownerUserId, link.ownerAnonId, owner);
 
-    // Validate that the new expiry date, when provided, is in the future.
-    // An expiry date in the past would make the link immediately inaccessible
-    // immediately inaccessible, which is almost certainly a client error.
     if (dto.expiresAt !== undefined && dto.expiresAt !== null) {
       const expiryDate = new Date(dto.expiresAt);
+
       if (Number.isNaN(expiryDate.getTime()) || expiryDate <= new Date()) {
-        throw new BadRequestException('expiresAt must be a valid future date');
+        throw new BadRequestException(
+          'A data de expiração deve ser uma data válida no futuro.',
+        );
       }
     }
 
     const updated = await this.prisma.link.update({
       where: { slug: code },
       data: {
-        ...(dto.url !== undefined && { originalUrl: dto.url }),
+        ...(dto.url !== undefined && {
+          originalUrl: dto.url,
+        }),
         ...(dto.expiresAt !== undefined && {
           expiresAt: dto.expiresAt === null ? null : new Date(dto.expiresAt),
         }),
-        ...(dto.singleUse !== undefined && { isSingleUse: dto.singleUse }),
-        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.singleUse !== undefined && {
+          isSingleUse: dto.singleUse,
+        }),
+        ...(dto.status !== undefined && {
+          status: dto.status,
+        }),
       },
     });
 
     return LinkResponseDto.from(updated);
   }
 
-  // ── Remove (soft delete) ───────────────────────────────────────────────
+  // ── Exclusão lógica ────────────────────────────────────────────────────
 
   async remove(code: string, owner: LinkOwner): Promise<void> {
     const link = await this.prisma.link.findUnique({
@@ -439,7 +459,7 @@ export class LinksService {
     });
 
     if (!link || link.status === LinkStatus.DELETED) {
-      throw new NotFoundException('Link not found');
+      throw new NotFoundException('Link não encontrado.');
     }
 
     this.assertOwner(link.ownerUserId, link.ownerAnonId, owner);
@@ -450,52 +470,62 @@ export class LinksService {
     });
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────
+  // ── Métodos auxiliares ─────────────────────────────────────────────────
 
   /**
-   * Resolve the slug to use for a new link.
-   * - Custom slug: validate pattern, check reserved list, check uniqueness.
-   * - Auto slug: generate up to MAX_SLUG_RETRIES random slugs until one is free.
+   * Resolve o endereço curto para um novo link.
+   * Valida endereços personalizados e verifica colisões.
    */
   private async resolveSlug(customSlug?: string): Promise<string> {
     if (customSlug !== undefined) {
       if (!isValidCustomSlug(customSlug)) {
         throw new BadRequestException(
-          'customSlug must be 3–32 characters: letters, numbers, hyphens or underscores',
+          'O endereço personalizado deve ter entre 3 e 32 caracteres e conter apenas letras, números, hífens ou underscores.',
         );
       }
+
       if (isReservedSlug(customSlug)) {
         throw new BadRequestException(
-          `"${customSlug}" is a reserved slug and cannot be used`,
+          `O endereço "${customSlug}" é reservado e não pode ser utilizado.`,
         );
       }
+
       const existing = await this.prisma.link.findUnique({
         where: { slug: customSlug },
       });
+
       if (existing) {
-        throw new ConflictException('This custom slug is already taken');
+        throw new ConflictException(
+          'Este endereço personalizado já está em uso.',
+        );
       }
+
       return customSlug;
     }
 
-    // Auto-generate with collision retry
+    // Gera um endereço e verifica se já existe.
     for (let attempt = 1; attempt <= MAX_SLUG_RETRIES; attempt++) {
       const slug = generateSlug();
+
       const existing = await this.prisma.link.findUnique({
         where: { slug },
       });
-      if (!existing) return slug;
-      this.logger.warn(`Slug collision on attempt ${attempt}: ${slug}`);
+
+      if (!existing) {
+        return slug;
+      }
+
+      this.logger.warn(`Colisão de endereço na tentativa ${attempt}: ${slug}`);
     }
 
     throw new ConflictException(
-      'Could not generate a unique slug after multiple attempts. Please try again.',
+      'Não foi possível gerar um endereço exclusivo após várias tentativas. Tente novamente.',
     );
   }
 
   /**
-   * Throw 403 if the link does not belong to the current anonymous owner.
-   * Uses ownerAnonId only — Google auth is out of scope for this phase.
+   * Verifica se o link pertence ao proprietário atual.
+   * Retorna 404 para não revelar links de outros proprietários.
    */
   private assertOwner(
     linkOwnerUserId: number | null,
@@ -504,14 +534,14 @@ export class LinksService {
   ): void {
     if ('userId' in owner) {
       if (linkOwnerUserId !== owner.userId) {
-        throw new NotFoundException('Link not found');
+        throw new NotFoundException('Link não encontrado.');
       }
 
       return;
     }
 
     if (linkOwnerUserId !== null || linkOwnerAnonId !== owner.anonId) {
-      throw new NotFoundException('Link not found');
+      throw new NotFoundException('Link não encontrado.');
     }
   }
 }

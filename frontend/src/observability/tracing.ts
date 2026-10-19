@@ -13,23 +13,23 @@
  * Falls back to VITE_OTEL_ENDPOINT for local `vite dev` runs.
  */
 
-import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
+import { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   SEMRESATTRS_SERVICE_NAME,
   SEMRESATTRS_SERVICE_VERSION,
   SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-} from '@opentelemetry/semantic-conventions';
-import { registerInstrumentations } from '@opentelemetry/instrumentation';
-import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch';
-import { DocumentLoadInstrumentation } from '@opentelemetry/instrumentation-document-load';
-import { UserInteractionInstrumentation } from '@opentelemetry/instrumentation-user-interaction';
-import { W3CTraceContextPropagator } from '@opentelemetry/core';
-import { CompositePropagator } from '@opentelemetry/core';
-import { context, propagation, trace } from '@opentelemetry/api';
-import { ZoneContextManager } from '@opentelemetry/context-zone';
+} from "@opentelemetry/semantic-conventions";
+import { registerInstrumentations } from "@opentelemetry/instrumentation";
+import { FetchInstrumentation } from "@opentelemetry/instrumentation-fetch";
+import { DocumentLoadInstrumentation } from "@opentelemetry/instrumentation-document-load";
+import { UserInteractionInstrumentation } from "@opentelemetry/instrumentation-user-interaction";
+import { W3CTraceContextPropagator } from "@opentelemetry/core";
+import { CompositePropagator } from "@opentelemetry/core";
+import { context, propagation, trace } from "@opentelemetry/api";
+import { ZoneContextManager } from "@opentelemetry/context-zone";
 
 // ---------------------------------------------------------------------------
 // Runtime configuration — reads from ConfigMap-injected window.__APP_CONFIG__
@@ -50,11 +50,11 @@ const cfg = window.__APP_CONFIG__ ?? {};
 const OTEL_ENDPOINT =
   cfg.OTEL_ENDPOINT ||
   import.meta.env.VITE_OTEL_ENDPOINT ||
-  'http://otel.sircurty.local';
+  "http://otel.sircurty.local";
 
-const SERVICE_NAME = 'sircurty-frontend';
-const SERVICE_VERSION = import.meta.env.VITE_APP_VERSION ?? 'dev';
-const DEPLOYMENT_ENV = cfg.APP_ENV ?? import.meta.env.VITE_APP_ENV ?? 'dev';
+const SERVICE_NAME = "sircurty-frontend";
+const SERVICE_VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
+const DEPLOYMENT_ENV = cfg.APP_ENV ?? import.meta.env.VITE_APP_ENV ?? "dev";
 
 // ---------------------------------------------------------------------------
 // Provider setup
@@ -65,7 +65,7 @@ const exporter = new OTLPTraceExporter({
 });
 
 const provider = new WebTracerProvider({
-  resource: new Resource({
+  resource: resourceFromAttributes({
     [SEMRESATTRS_SERVICE_NAME]: SERVICE_NAME,
     [SEMRESATTRS_SERVICE_VERSION]: SERVICE_VERSION,
     [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: DEPLOYMENT_ENV,
@@ -102,7 +102,7 @@ registerInstrumentations({
       // to third-party origins (QR code libs, Google Fonts, etc.)
       propagateTraceHeaderCorsUrls: [
         // Matches both /api/* on same origin and the explicit API_URL
-        new RegExp(`^${cfg.API_URL ?? '/api'}`),
+        new RegExp(`^${cfg.API_URL ?? "/api"}`),
         /^https?:\/\/sircurty\.local/,
       ],
       // Clear timing resources after each span to avoid memory growth
@@ -112,7 +112,7 @@ registerInstrumentations({
     // Instruments click events — creates spans for user interactions
     // (optional; comment out if too noisy)
     new UserInteractionInstrumentation({
-      eventNames: ['click'],
+      eventNames: ["click"],
     }),
   ],
 });
