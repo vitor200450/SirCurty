@@ -15,8 +15,8 @@ Guia para agentes de IA (Kiro, Copilot, ChatGPT, etc.) atuarem de forma consiste
 - ORM/migrações: Prisma (`api/prisma/`)
 - Banco: PostgreSQL
 - Infra: Kubernetes + Helm + GitHub Actions + ArgoCD
-- Observabilidade: OpenTelemetry (traces FE→API→DB) + Grafana (dashboards core)
-- Links curtos: ID autoincremental + scrambling (`sqids` ou multiplicação modular) + Base62, com vanity URLs
+- Observabilidade: OpenTelemetry (traces FE→API→DB) + Prometheus (métricas) + Grafana (dashboards core)
+- Links curtos: slug aleatório (base64url de bytes aleatórios) com vanity URLs, único garantido pelo banco
 
 ## Estrutura esperada
 
@@ -25,7 +25,7 @@ Guia para agentes de IA (Kiro, Copilot, ChatGPT, etc.) atuarem de forma consiste
 - `k8s/` — `charts/sircurty/` (Helm), `argocd/`
 - `.github/workflows/` — `ci.yml`, `cd.yml`
 - `docs/` — planejamento, arquitetura, observabilidade, pitch, AI usage
-- `scripts/` — seed, geração de cliques para demo
+- `scripts/` — utilitários do cluster local
 
 ## Convenções
 
@@ -53,9 +53,8 @@ Guia para agentes de IA (Kiro, Copilot, ChatGPT, etc.) atuarem de forma consiste
 
 ## Regras para agentes
 
-- Não reescrever decisões lockadas sem aprovação (stack, Base62+scrambling, interstitial, OTel core).
+- Não reescrever decisões lockadas sem aprovação (stack, geração de slug, interstitial, OTel core).
 - Manter o `.gitignore` protegendo o PDF.
 - Atualizar docs quando mudar arquitetura/decisões.
 - Preferir pequenos commits focados.
-- Em caso de dúvida sobre responsabilidades, consultar `docs/initial-planning.md`.
-- Seguir `docs/git-workflow.md` (GitFlow simplificado: main → develop → feature/*; sem release/hotfix) para branches e evitar conflitos.
+- Seguir `docs/git-workflow.md` (GitFlow simplificado: main → develop → feature/*; sem release/hotfix) para branches, responsabilidades e evitar conflitos.

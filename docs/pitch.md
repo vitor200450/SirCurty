@@ -18,14 +18,14 @@ Gerar cliques ao vivo e mostrar o dashboard reagindo em tempo real.
 - [ ] Login do Google feito em `http://localhost` (nunca em `sircurty.local`, que o Google recusa).
 - [ ] Grafana em `http://grafana.sircurty.local` já logado como `admin` / `sircurty` (sem isso o clique no Trace ID não abre o Explore), com o intervalo em "Last 1 hour".
 - [ ] Gere tráfego 1 a 2 minutos antes: os painéis de latência usam `rate(...[1m])` e ficam vazios sem spans recentes.
-- [ ] Abas prontas: app, dashboard do Grafana (Serviços e Traces), GitHub (PRs e Actions) e o ArgoCD, se estiver ligado.
+- [ ] Abas prontas: app, dashboard do Grafana (Visão Geral, Links e Traces), GitHub (PRs e Actions) e o ArgoCD, se estiver ligado.
 
 ## Roteiro da demo (~8 min)
 
 1. **Criar link** na home: URL comum, depois um com código próprio (vanity), um com senha e um de uso único.
 2. **Abrir o link curto**: contagem 3-2-1 e redirect. Mostrar a senha errada (erro no formulário) e o código inexistente (tela "Pergaminho não Encontrado!").
 3. **Dashboard do usuário**: cliques subindo e os selos "Consumido"/"Expirado". Fazer login com o Google e mostrar que os links criados como anônimo continuam lá.
-4. **Momento de prova**: gerar cliques e mostrar no Grafana os painéis de Serviços reagindo.
+4. **Momento de prova**: gerar cliques e mostrar no Grafana os painéis de Visão Geral reagindo.
 5. **Trace atravessando as camadas**: no dashboard de Traces, abrir um trace (Trace ID) e mostrar frontend → API → banco.
 6. **Por baixo do capô**: PR com CI verde, merge, CD publicando a imagem e o commit de bump, ArgoCD aplicando (tudo no histórico do GitHub). Para provar o self-heal ao vivo: `kubectl delete deploy frontend -n sircurty`; o ArgoCD recria em ~17 s (medido), e o frontend fica fora do ar nesse tempo, então faça isso no final.
 
