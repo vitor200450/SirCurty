@@ -12,6 +12,8 @@ data:
   APP_BASE_URL: "http://{{ .Values.hosts.app }}"
   OTEL_ENDPOINT: "http://{{ .Values.hosts.otel }}"
 
+  # Google OAuth Client ID (public, not a secret): read by the API and rendered into env-config.js
+  GOOGLE_CLIENT_ID: {{ .Values.google.clientId | quote }}
   # API runtime config
   NODE_ENV: "production"
   PORT: "3000"

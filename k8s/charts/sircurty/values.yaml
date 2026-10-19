@@ -7,6 +7,10 @@ hosts:
   grafana: grafana.sircurty.local
   otel: otel.sircurty.local
 
+google:
+  # OAuth Client ID from Google Cloud Console (public value). The API refuses to start if empty.
+  clientId: "change-me.apps.googleusercontent.com"
+
 api:
   replicas: 1
   image:

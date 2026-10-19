@@ -49,6 +49,11 @@ spec:
                 configMapKeyRef:
                   name: sircurty-config
                   key: OTEL_ENDPOINT
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: sircurty-config
+                  key: GOOGLE_CLIENT_ID
           resources:
             requests:
               cpu: "50m"
