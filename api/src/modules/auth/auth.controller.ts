@@ -105,6 +105,10 @@ export class AuthController {
 
     const user = await this.sessionService.validate(token);
 
+    if (!user) {
+      throw new UnauthorizedException('Not authenticated');
+    }
+
     return {
       user: {
         id: user.id,
