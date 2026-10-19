@@ -76,7 +76,7 @@ export default function App() {
       `}</style>
 
       <div
-        className={`min-h-screen font-sans transition-colors duration-500 ${
+        className={`relative min-h-screen font-sans transition-colors duration-500 ${
           isDarkMode
             ? "bg-[#0B0D14] text-slate-200"
             : "bg-[#FDF8EE] text-slate-800"

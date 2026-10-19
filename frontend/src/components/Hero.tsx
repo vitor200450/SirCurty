@@ -34,83 +34,85 @@ export default function Hero({
   setSenhaInput,
 }: HeroProps) {
   return (
-    <main className="max-w-7xl mx-auto px-8 py-4">
-      <div className="relative p-8 md:p-12 md:pb-16 grid md:grid-cols-2 gap-8 items-center z-0">
-        {/* Fundo temático */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-cover bg-center transition-all duration-700 pointer-events-none z-0"
-          style={{
-            backgroundImage: `url(${isDarkMode ? bgNoite : bgDia})`,
-            maskImage:
-              "radial-gradient(ellipse 80% 90% at 50% 50%, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 100%)",
-            WebkitMaskImage:
-              "radial-gradient(ellipse 80% 90% at 50% 50%, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 100%)",
-          }}
-        />
+    <main className="relative">
+      {/* Fundo do castelo em largura total, atrás do cabeçalho */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-cover bg-center transition-all duration-700 pointer-events-none z-0"
+        style={{
+          backgroundImage: `url(${isDarkMode ? bgNoite : bgDia})`,
+          maskImage:
+            "radial-gradient(ellipse 90% 95% at 50% 45%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)",
+          WebkitMaskImage:
+            "radial-gradient(ellipse 90% 95% at 50% 45%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)",
+        }}
+      />
 
-        {/* Conteúdo principal */}
-        <div className="relative z-10 space-y-6">
-          <HeroIntro isDarkMode={isDarkMode} />
+      {/* Conteúdo principal — largura máxima mantida para leitura */}
+      <div className="relative z-10 max-w-7xl mx-auto px-8 pt-24 pb-4 md:pt-28 md:pb-16">
+        <div className="p-8 md:p-12 md:pb-16 grid md:grid-cols-2 gap-8 items-center z-0">
+          <div className="relative z-10 space-y-6">
+            <HeroIntro isDarkMode={isDarkMode} />
 
-          <LinkForm
-            isDarkMode={isDarkMode}
-            linkInput={linkInput}
-            setLinkInput={setLinkInput}
-            handleEncurtar={handleEncurtar}
-            isLoading={isLoading}
-          >
-            <AdvancedOptions
+            <LinkForm
               isDarkMode={isDarkMode}
-              isPersonalizado={isPersonalizado}
-              setIsPersonalizado={setIsPersonalizado}
-              vanityUrl={vanityUrl}
-              setVanityUrl={setVanityUrl}
-              isUnica={isUnica}
-              setIsUnica={setIsUnica}
-              isSenha={isSenha}
-              setIsSenha={setIsSenha}
-              senhaInput={senhaInput}
-              setSenhaInput={setSenhaInput}
-            />
+              linkInput={linkInput}
+              setLinkInput={setLinkInput}
+              handleEncurtar={handleEncurtar}
+              isLoading={isLoading}
+            >
+              <AdvancedOptions
+                isDarkMode={isDarkMode}
+                isPersonalizado={isPersonalizado}
+                setIsPersonalizado={setIsPersonalizado}
+                vanityUrl={vanityUrl}
+                setVanityUrl={setVanityUrl}
+                isUnica={isUnica}
+                setIsUnica={setIsUnica}
+                isSenha={isSenha}
+                setIsSenha={setIsSenha}
+                senhaInput={senhaInput}
+                setSenhaInput={setSenhaInput}
+              />
 
-            <ValidationError
-              isDarkMode={isDarkMode}
-              message={erroValidacao ?? ""}
-            />
-          </LinkForm>
+              <ValidationError
+                isDarkMode={isDarkMode}
+                message={erroValidacao ?? ""}
+              />
+            </LinkForm>
 
-          {/* Resultado da criação */}
-          {linkGerado && !erroValidacao && (
-            <GeneratedLink
-              isDarkMode={isDarkMode}
-              linkGerado={linkGerado}
-              isUnica={isUnica}
-              isSenha={isSenha}
-              copiarLink={copiarLink}
-              copiado={copiado}
-            />
-          )}
+            {/* Resultado da criação */}
+            {linkGerado && !erroValidacao && (
+              <GeneratedLink
+                isDarkMode={isDarkMode}
+                linkGerado={linkGerado}
+                isUnica={isUnica}
+                isSenha={isSenha}
+                copiarLink={copiarLink}
+                copiado={copiado}
+              />
+            )}
 
-          {/* Indicador de segurança */}
-          <div
-            className={`inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-sm backdrop-blur-sm ${
-              isDarkMode
-                ? "bg-[#151828]/60 text-slate-300"
-                : "bg-white/60 text-[#3B2A6B]"
-            }`}
-          >
-            <span aria-hidden="true">🛡️</span>
-            Links seguros e protegidos
+            {/* Indicador de segurança */}
+            <div
+              className={`inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-sm backdrop-blur-sm ${
+                isDarkMode
+                  ? "bg-[#151828]/60 text-slate-300"
+                  : "bg-white/60 text-[#3B2A6B]"
+              }`}
+            >
+              <span aria-hidden="true">🛡️</span>
+              Links seguros e protegidos
+            </div>
           </div>
-        </div>
 
-        {/* Mascote */}
-        <Mascot
-          isDarkMode={isDarkMode}
-          mensagemMascote={mensagemMascote}
-          falarComMascote={falarComMascote}
-        />
+          {/* Mascote */}
+          <Mascot
+            isDarkMode={isDarkMode}
+            mensagemMascote={mensagemMascote}
+            falarComMascote={falarComMascote}
+          />
+        </div>
       </div>
     </main>
   );
