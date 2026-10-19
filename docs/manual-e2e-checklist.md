@@ -8,9 +8,8 @@ Marque cada item; se algum falhar, a coluna "Se falhar" aponta o primeiro lugar 
 - [ ] Kubernetes do Docker Desktop ativo: `kubectl get nodes` mostra `desktop-control-plane Ready`.
 - [ ] Ingress NGINX rodando: `kubectl get pods -n ingress-nginx` com o controller `1/1 Running`.
 - [ ] Arquivo hosts com `127.0.0.1 sircurty.local grafana.sircurty.local otel.sircurty.local`.
-- [ ] Google Client ID real no chart: `--set google.clientId=<id>.apps.googleusercontent.com`
-      (o default é placeholder: a API sobe, mas o login falha). A origem usada no navegador
-      precisa estar em "Authorized JavaScript origins" no Google Cloud Console.
+- [ ] `GOOGLE_CLIENT_ID` presente no Secret `sircurty-secrets` (sem ele a API não sobe). A origem
+      usada no navegador precisa estar em "Authorized JavaScript origins" no Google Cloud Console.
 - [ ] Secret criado: `kubectl get secret sircurty-secrets -n sircurty` (some se o namespace for apagado).
 - [ ] Imagens locais: use uma tag nova a cada rebuild (`local2`, `local3`...) no `helm upgrade --set`;
       reusar `:local` faz o node manter a imagem antiga em cache (`IfNotPresent`).

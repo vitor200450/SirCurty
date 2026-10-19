@@ -49,8 +49,12 @@ kubectl create namespace sircurty   # só se o namespace ainda não existir
 kubectl -n sircurty create secret generic sircurty-secrets \
   --from-literal=POSTGRES_PASSWORD='<senha>' \
   --from-literal=DATABASE_URL='postgresql://sircurty:<senha>@postgres:5432/sircurty?schema=public' \
-  --from-literal=JWT_SECRET='<string-aleatoria>'
+  --from-literal=JWT_SECRET='<string-aleatoria>' \
+  --from-literal=GOOGLE_CLIENT_ID='<id>.apps.googleusercontent.com'
 ```
+
+O `GOOGLE_CLIENT_ID` (mesmo valor do `.env` local) é lido pela API e entregue ao navegador via
+`/env-config.js`; sem ele a API não sobe.
 
 `secret.example.yaml` é só referência e não faz parte do chart.
 

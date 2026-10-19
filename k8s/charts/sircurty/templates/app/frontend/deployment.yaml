@@ -51,8 +51,8 @@ spec:
                   key: OTEL_ENDPOINT
             - name: GOOGLE_CLIENT_ID
               valueFrom:
-                configMapKeyRef:
-                  name: sircurty-config
+                secretKeyRef:
+                  name: sircurty-secrets
                   key: GOOGLE_CLIENT_ID
           resources:
             requests:
