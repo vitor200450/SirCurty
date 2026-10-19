@@ -8,52 +8,42 @@ import {
   ParseIntPipe,
   Query,
   Req,
-  UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import { SessionService } from '../auth/session.service.js';
+import { LinkResponseDto } from '../links/dto/link-response.dto.js';
+import { resolveLinkOwner } from '../links/link-owner.js';
 import { ClicksService } from './clicks.service.js';
 import { ClickStatsDto } from './dto/click-stats.dto.js';
-import { LinkResponseDto } from '../links/dto/link-response.dto.js';
-
-/**
- * Extracts the ownerAnonId injected by AnonymousMiddleware.
- * Throws 401 if middleware has not run (misconfiguration guard).
- */
-function requireOwnerAnonId(req: Request): string {
-  const id = req.ownerAnonId;
-  if (!id)
-    throw new UnauthorizedException('Anonymous identity could not be resolved');
-  return id;
-}
 
 @Controller()
 export class StatsController {
-  constructor(private readonly clicksService: ClicksService) {}
+  constructor(
+    private readonly clicksService: ClicksService,
+    private readonly sessionService: SessionService,
+  ) {}
 
   /**
    * GET /api/links/:code/stats
-   * Returns aggregated click statistics for a single owned link.
-   * Includes total click count and a per-day breakdown.
-   * Ownership is enforced — 404 is returned for links owned by others.
+   * Returns aggregated click statistics for an owned link.
    */
   @Get('links/:code/stats')
   @HttpCode(HttpStatus.OK)
-  getStats(
+  async getStats(
     @Param('code') code: string,
     @Req() req: Request,
   ): Promise<ClickStatsDto> {
-    return this.clicksService.getStats(code, requireOwnerAnonId(req));
+    const owner = await resolveLinkOwner(req, this.sessionService);
+    return this.clicksService.getStats(code, owner);
   }
 
   /**
    * GET /api/stats/top?limit=10
-   * Returns the top N links owned by the current user, sorted by click count.
-   * Used by the dashboard ranking panel.
-   * Default limit is 10; maximum is 50.
+   * Returns the current owner's top links by click count.
    */
   @Get('stats/top')
   @HttpCode(HttpStatus.OK)
-  getTopLinks(
+  async getTopLinks(
     @Req() req: Request,
     @Query(
       'limit',
@@ -62,7 +52,9 @@ export class StatsController {
     )
     limit: number,
   ): Promise<LinkResponseDto[]> {
+    const owner = await resolveLinkOwner(req, this.sessionService);
     const safeLimit = Math.min(Math.max(1, limit), 50);
-    return this.clicksService.getTopLinks(requireOwnerAnonId(req), safeLimit);
+
+    return this.clicksService.getTopLinks(owner, safeLimit);
   }
 }

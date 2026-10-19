@@ -10,12 +10,10 @@ import {
   Patch,
   Post,
   Req,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { SessionService } from '../auth/session.service.js';
-import { getCookie, SESSION_COOKIE_NAME } from '../auth/session-cookie.js';
 import { ClicksService } from '../clicks/clicks.service.js';
 import { CreateLinkDto } from './dto/create-link.dto.js';
 import { LinkPreviewDto } from './dto/link-preview.dto.js';
@@ -25,8 +23,8 @@ import {
 } from './dto/link-response.dto.js';
 import { UnlockLinkDto, UnlockLinkResponseDto } from './dto/unlock-link.dto.js';
 import { UpdateLinkDto } from './dto/update-link.dto.js';
-import type { LinkOwner } from './links.service.js';
 import { LinksService } from './links.service.js';
+import { resolveLinkOwner } from './link-owner.js';
 
 /**
  * Resolves the current link owner from the authenticated session or
@@ -37,27 +35,6 @@ import { LinksService } from './links.service.js';
  *
  * Throws UnauthorizedException if neither identity can be resolved.
  */
-async function resolveLinkOwner(
-  req: Request,
-  sessionService: SessionService,
-): Promise<LinkOwner> {
-  const sessionToken = getCookie(req.headers.cookie, SESSION_COOKIE_NAME);
-
-  if (sessionToken) {
-    const user = await sessionService.validate(sessionToken);
-    return { userId: user.id };
-  }
-
-  const anonId = req.ownerAnonId;
-
-  if (!anonId) {
-    throw new UnauthorizedException(
-      'Anonymous identity could not be resolved',
-    );
-  }
-
-  return { anonId };
-}
 
 @Controller('links')
 @SkipThrottle({ unlock: true })

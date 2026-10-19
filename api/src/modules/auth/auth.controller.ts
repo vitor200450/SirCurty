@@ -70,13 +70,19 @@ export class AuthController {
   ) {
     const user = await this.authService.findOrCreateGoogleUser(dto.idToken);
 
+    // Transfere para a conta os links do visitante anônimo atual.
+    await this.authService.transferAnonymousLinks(
+      user.id,
+      req.ownerAnonId,
+    );
+
     const session = await this.sessionService.create(user.id);
 
     const maxAgeSeconds = Math.floor(
       (session.expiresAt.getTime() - Date.now()) / 1000,
     );
 
-    // append preserva o Set-Cookie já emitido pelo middleware anônimo.
+    // Preserva o cookie anônimo emitido pelo middleware.
     res.append('Set-Cookie', sessionCookie(session.token, req, maxAgeSeconds));
 
     return {
@@ -110,7 +116,10 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const token = getCookie(req.headers.cookie, SESSION_COOKIE_NAME);
 
     if (token) {

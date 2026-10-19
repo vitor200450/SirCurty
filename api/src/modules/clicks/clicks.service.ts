@@ -1,13 +1,13 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { Prisma, LinkStatus } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../infrastructure/database/prisma.service.js';
+import type { LinkOwner } from '../links/links.service.js';
 import { LinkResponseDto } from '../links/dto/link-response.dto.js';
-import { LinkStatus } from '../../generated/prisma/client.js';
 import { ClickStatsDto } from './dto/click-stats.dto.js';
 
 /** Metadata extracted from the HTTP request for a click record. */
 export interface ClickMeta {
-  /** Raw IP address string from the request (req.ip). May be IPv4 or IPv6. */
   ip: string | undefined;
   userAgent: string | undefined;
   referrer: string | undefined;
@@ -20,19 +20,13 @@ export class ClicksService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Records a click for the given link.
-   *
-   * The IP is hashed with SHA-256 before persistence — raw IPs are never stored.
-   * This method is intentionally fire-and-forget from the caller's perspective:
-   * a failure here must NOT affect the HTTP response already sent to the visitor.
-   * The caller catches any thrown error and logs it without rethrowing.
+   * Records a click. IP addresses are hashed before persistence.
    */
   async record(linkId: number, meta: ClickMeta): Promise<void> {
     const ipHash = meta.ip
       ? createHash('sha256').update(meta.ip).digest('hex')
       : null;
 
-    // Truncate to column limits defined in the schema.
     const userAgent = meta.userAgent?.slice(0, 512) ?? null;
     const referrer = meta.referrer?.slice(0, 2048) ?? null;
 
@@ -47,39 +41,39 @@ export class ClicksService {
   }
 
   /**
-   * Returns aggregated click statistics for a link owned by the requester.
-   *
-   * Enforces ownership: throws 404 if the link does not exist, is deleted,
-   * or belongs to a different anonymous owner — matching the same isolation
-   * pattern used throughout LinksService.
+   * Returns click statistics for a link owned by the requester.
    */
-  async getStats(code: string, ownerAnonId: string): Promise<ClickStatsDto> {
-    const link = await this.prisma.link.findUnique({ where: { slug: code } });
+  async getStats(code: string, owner: LinkOwner): Promise<ClickStatsDto> {
+    const link = await this.prisma.link.findUnique({
+      where: { slug: code },
+    });
 
     if (!link || link.status === LinkStatus.DELETED) {
       throw new NotFoundException('Link not found');
     }
 
-    if (link.ownerAnonId !== ownerAnonId) {
-      // Return 404 rather than 403 to avoid confirming existence to other owners.
+    if ('userId' in owner) {
+      if (link.ownerUserId !== owner.userId) {
+        throw new NotFoundException('Link not found');
+      }
+    } else if (
+      link.ownerUserId !== null ||
+      link.ownerAnonId !== owner.anonId
+    ) {
       throw new NotFoundException('Link not found');
     }
 
-    // Total clicks — single COUNT query using the primary index on linkId.
     const totalResult = await this.prisma.click.aggregate({
       where: { linkId: link.id },
       _count: { id: true },
     });
-    const total = totalResult._count.id;
 
-    // Clicks grouped by calendar day (UTC) — uses idx_clicks_link_id_clicked_at.
-    // Raw query needed because Prisma's groupBy does not support date truncation.
     const dailyRows = await this.prisma.$queryRaw<
       Array<{ day: Date; count: bigint }>
     >`
       SELECT
         DATE_TRUNC('day', clicked_at AT TIME ZONE 'UTC') AS day,
-        COUNT(*)::bigint                                  AS count
+        COUNT(*)::bigint AS count
       FROM clicks
       WHERE link_id = ${link.id}
       GROUP BY 1
@@ -87,28 +81,30 @@ export class ClicksService {
     `;
 
     const dailyClicks = dailyRows.map((row) => ({
-      day: row.day.toISOString().slice(0, 10), // 'YYYY-MM-DD'
+      day: row.day.toISOString().slice(0, 10),
       count: Number(row.count),
     }));
 
     const dto = new ClickStatsDto();
     dto.code = link.slug;
-    dto.total = total;
+    dto.total = totalResult._count.id;
     dto.dailyClicks = dailyClicks;
+
     return dto;
   }
 
   /**
-   * Returns the top N links by click count for the given owner.
-   * Used by the dashboard ranking panel.
-   * Only returns ACTIVE and DISABLED links — excludes DELETED.
+   * Returns the top links belonging to the requester.
    */
   async getTopLinks(
-    ownerAnonId: string,
+    owner: LinkOwner,
     limit = 10,
   ): Promise<LinkResponseDto[]> {
-    // Find links belonging to the owner ordered by their click count.
-    // Uses idx_clicks_link_id_clicked_at for the JOIN/GROUP BY.
+    const ownerCondition =
+      'userId' in owner
+        ? Prisma.sql`l.owner_user_id = ${owner.userId}`
+        : Prisma.sql`l.owner_anon_id = ${owner.anonId}`;
+
     const rows = await this.prisma.$queryRaw<
       Array<{ link_id: number; click_count: bigint }>
     >`
@@ -117,24 +113,31 @@ export class ClicksService {
         COUNT(c.id)::bigint AS click_count
       FROM links l
       LEFT JOIN clicks c ON c.link_id = l.id
-      WHERE l.owner_anon_id = ${ownerAnonId}
+      WHERE
+        ${ownerCondition}
         AND l.status != ${LinkStatus.DELETED}::"link_status"
       GROUP BY l.id
       ORDER BY click_count DESC
       LIMIT ${limit}
     `;
 
-    if (rows.length === 0) return [];
+    if (rows.length === 0) {
+      return [];
+    }
 
-    const linkIds = rows.map((r) => r.link_id);
+    const linkIds = rows.map((row) => row.link_id);
 
     const links = await this.prisma.link.findMany({
       where: { id: { in: linkIds } },
     });
 
-    // Preserve the click-count order from the raw query.
-    const orderMap = new Map(rows.map((r, i) => [r.link_id, i]));
-    links.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+    const orderMap = new Map(
+      rows.map((row, index) => [row.link_id, index]),
+    );
+
+    links.sort(
+      (a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
+    );
 
     return links.map((link) => LinkResponseDto.from(link));
   }

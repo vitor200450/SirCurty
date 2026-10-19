@@ -62,4 +62,26 @@ export class AuthService {
       throw error;
     }
   }
+
+  async transferAnonymousLinks(
+    userId: number,
+    anonId: string | undefined,
+  ): Promise<number> {
+    if (!anonId) {
+      return 0;
+    }
+
+    const result = await this.prisma.link.updateMany({
+      where: {
+        ownerAnonId: anonId,
+        ownerUserId: null,
+      },
+      data: {
+        ownerUserId: userId,
+        ownerAnonId: null,
+      },
+    });
+
+    return result.count;
+  }
 }
