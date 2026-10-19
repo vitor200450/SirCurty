@@ -223,14 +223,14 @@ export class LinksService {
           // extraction is best-effort and must not mask the real error.
         }
 
-        return await this.createInternal(dto, ownerAnonId, span);
+        return await this.createInternal(dto, owner, span);
       },
     );
   }
 
   private async createInternal(
     dto: CreateLinkDto,
-    ownerAnonId: string,
+    owner: LinkOwner,
     span: Span,
   ): Promise<CreateLinkResponseDto> {
     if (
