@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LinkStatus, Prisma } from '../../generated/prisma/client.js';
+import type { TracingService } from '../../observability/tracing.service.js';
 import { LinksService } from './links.service.js';
 import { CreateLinkDto } from './dto/create-link.dto.js';
 import { UpdateLinkDto } from './dto/update-link.dto.js';
@@ -73,14 +74,34 @@ function makeConfig(baseUrl = BASE_URL) {
   };
 }
 
+function makeTracing() {
+  return {
+    // Passthrough stub: runs the wrapped callback with a no-op span so the
+    // service logic is exercised without a real OpenTelemetry SDK.
+    withSpan: jest.fn(
+      async <T>(_name: string, fn: (span: unknown) => Promise<T>) =>
+        await fn({
+          setAttributes: jest.fn(),
+          setStatus: jest.fn(),
+          recordException: jest.fn(),
+          end: jest.fn(),
+        }),
+    ),
+    setCurrentSpanAttributes: jest.fn(),
+    recordError: jest.fn(),
+  };
+}
+
 function makeService(prismaOverrides: Record<string, unknown> = {}) {
   const prisma = makePrisma(prismaOverrides);
   const config = makeConfig();
+  const tracing = makeTracing();
   const service = new LinksService(
     prisma as never,
     config as unknown as ConfigService,
+    tracing as unknown as TracingService,
   );
-  return { service, prisma, config };
+  return { service, prisma, config, tracing };
 }
 
 // ── create ──────────────────────────────────────────────────────────────────

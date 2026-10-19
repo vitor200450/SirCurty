@@ -10,7 +10,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import type { Span } from '@opentelemetry/api';
 import { PrismaService } from '../../infrastructure/database/prisma.service.js';
+import { TracingService } from '../../observability/tracing.service.js';
 import { LinkStatus } from '../../generated/prisma/client.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import {
@@ -58,6 +60,7 @@ export class LinksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly tracing: TracingService,
   ) {}
 
   // ── Preview público ────────────────────────────────────────────────────
@@ -114,66 +117,86 @@ export class LinksService {
   async getRedirectTarget(
     code: string,
   ): Promise<{ url: string; linkId: number }> {
-    const link = await this.prisma.link.findUnique({
-      where: { slug: code },
-    });
+    return this.tracing.withSpan(
+      'links.redirect',
+      async (span) => {
+        span.setAttributes({ 'link.code': code });
 
-    if (!link || link.status === LinkStatus.DELETED) {
-      throw new NotFoundException('Link não encontrado.');
-    }
+        const link = await this.prisma.link.findUnique({
+          where: { slug: code },
+        });
 
-    if (link.status === LinkStatus.DISABLED) {
-      throw new GoneException('Este link está desativado.');
-    }
+        if (!link || link.status === LinkStatus.DELETED) {
+          throw new NotFoundException('Link não encontrado.');
+        }
 
-    if (link.expiresAt && link.expiresAt <= new Date()) {
-      throw new GoneException('Este link expirou.');
-    }
+        span.setAttributes({ 'link.status': link.status });
 
-    if (link.passwordHash !== null) {
-      throw new ForbiddenException(
-        'Este link está protegido por senha. Informe a senha para continuar.',
-      );
-    }
+        if (link.status === LinkStatus.DISABLED) {
+          throw new GoneException('Este link está desativado.');
+        }
 
-    const url = link.originalUrl;
+        if (link.expiresAt && link.expiresAt <= new Date()) {
+          throw new GoneException('Este link expirou.');
+        }
 
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      this.logger.error(`O link ${code} possui um protocolo de URL inválido.`);
+        if (link.passwordHash !== null) {
+          throw new ForbiddenException(
+            'Este link está protegido por senha. Informe a senha para continuar.',
+          );
+        }
 
-      throw new BadRequestException(
-        'O destino deste link não é uma URL válida.',
-      );
-    }
+        const url = link.originalUrl;
 
-    if (link.isSingleUse) {
-      const now = new Date();
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          this.logger.error(`O link ${code} possui um protocolo de URL inválido.`);
 
-      const result = await this.prisma.link.updateMany({
-        where: {
-          id: link.id,
-          isSingleUse: true,
-          usedAt: null,
-          status: LinkStatus.ACTIVE,
-          passwordHash: null,
-          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-        },
-        data: {
-          usedAt: now,
-        },
-      });
+          throw new BadRequestException(
+            'O destino deste link não é uma URL válida.',
+          );
+        }
 
-      if (result.count !== 1) {
-        throw new GoneException(
-          'Este link de uso único já foi utilizado ou não está mais disponível.',
-        );
-      }
-    }
+        try {
+          span.setAttributes({
+            'link.target_domain': new URL(url).hostname,
+            'link.single_use': link.isSingleUse,
+            'link.has_password': link.passwordHash !== null,
+          });
+        } catch {
+          // URL was already validated above; hostname extraction is best-effort.
+        }
 
-    return {
-      url,
-      linkId: link.id,
-    };
+        if (link.isSingleUse) {
+          const now = new Date();
+
+          const result = await this.prisma.link.updateMany({
+            where: {
+              id: link.id,
+              isSingleUse: true,
+              usedAt: null,
+              status: LinkStatus.ACTIVE,
+              passwordHash: null,
+              OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+            },
+            data: {
+              usedAt: now,
+            },
+          });
+
+          if (result.count !== 1) {
+            throw new GoneException(
+              'Este link de uso único já foi utilizado ou não está mais disponível.',
+            );
+          }
+        }
+
+        return {
+          url,
+          linkId: link.id,
+        };
+      },
+      { 'link.code': code },
+    );
   }
 
   // ── Criação ────────────────────────────────────────────────────────────
@@ -181,6 +204,34 @@ export class LinksService {
   async create(
     dto: CreateLinkDto,
     owner: LinkOwner,
+  ): Promise<CreateLinkResponseDto> {
+    return this.tracing.withSpan(
+      'links.create',
+      async (span) => {
+        span.setAttributes({
+          'link.vanity': dto.customSlug !== undefined,
+          'link.single_use': dto.singleUse ?? false,
+          'link.has_password': typeof dto.password === 'string',
+        });
+
+        try {
+          span.setAttributes({
+            'link.target_domain': new URL(dto.url).hostname,
+          });
+        } catch {
+          // ValidationPipe rejects malformed URLs before this point; hostname
+          // extraction is best-effort and must not mask the real error.
+        }
+
+        return await this.createInternal(dto, ownerAnonId, span);
+      },
+    );
+  }
+
+  private async createInternal(
+    dto: CreateLinkDto,
+    ownerAnonId: string,
+    span: Span,
   ): Promise<CreateLinkResponseDto> {
     if (
       typeof dto.password === 'string' &&
@@ -286,6 +337,8 @@ export class LinksService {
     response.code = link.slug;
     response.shortUrl = `${baseUrl}/s/${link.slug}`;
 
+    span.setAttributes({ 'link.code': link.slug });
+
     return response;
   }
 
@@ -299,78 +352,96 @@ export class LinksService {
     code: string,
     password: string,
   ): Promise<UnlockLinkResponseDto> {
-    if (Buffer.byteLength(password, 'utf8') > BCRYPT_MAX_PASSWORD_BYTES) {
-      throw new BadRequestException(
-        'A senha não pode exceder 72 bytes quando codificada em UTF-8.',
-      );
-    }
+    return this.tracing.withSpan(
+      'links.unlock',
+      async (span) => {
+        span.setAttributes({ 'link.code': code });
 
-    const link = await this.prisma.link.findUnique({
-      where: { slug: code },
-    });
+        if (
+          Buffer.byteLength(password, 'utf8') > BCRYPT_MAX_PASSWORD_BYTES
+        ) {
+          throw new BadRequestException(
+            'A senha não pode exceder 72 bytes quando codificada em UTF-8.',
+          );
+        }
 
-    // Mantém a mesma resposta para senha incorreta e link inexistente.
-    if (!link || link.status === LinkStatus.DELETED) {
-      throw new UnauthorizedException('Senha inválida ou link não encontrado.');
-    }
+        const link = await this.prisma.link.findUnique({
+          where: { slug: code },
+        });
 
-    if (link.passwordHash === null) {
-      throw new BadRequestException('Este link não está protegido por senha.');
-    }
+        // Mantém a mesma resposta para senha incorreta e link inexistente.
+        if (!link || link.status === LinkStatus.DELETED) {
+          throw new UnauthorizedException(
+            'Senha inválida ou link não encontrado.',
+          );
+        }
 
-    if (link.status === LinkStatus.DISABLED) {
-      throw new GoneException('Este link está desativado.');
-    }
+        if (link.passwordHash === null) {
+          throw new BadRequestException(
+            'Este link não está protegido por senha.',
+          );
+        }
 
-    if (link.expiresAt && link.expiresAt <= new Date()) {
-      throw new GoneException('Este link expirou.');
-    }
+        if (link.status === LinkStatus.DISABLED) {
+          throw new GoneException('Este link está desativado.');
+        }
 
-    const isValid = await bcrypt.compare(password, link.passwordHash);
+        if (link.expiresAt && link.expiresAt <= new Date()) {
+          throw new GoneException('Este link expirou.');
+        }
 
-    if (!isValid) {
-      throw new UnauthorizedException('Senha inválida ou link não encontrado.');
-    }
+        const isValid = await bcrypt.compare(password, link.passwordHash);
 
-    const url = link.originalUrl;
+        span.setAttributes({ 'link.password_valid': isValid });
 
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      this.logger.error(`O link ${code} possui um protocolo de URL inválido.`);
+        if (!isValid) {
+          throw new UnauthorizedException(
+            'Senha inválida ou link não encontrado.',
+          );
+        }
 
-      throw new BadRequestException(
-        'O destino deste link não é uma URL válida.',
-      );
-    }
+        const url = link.originalUrl;
 
-    // Consome o link de uso único atomicamente após validar a senha.
-    if (link.isSingleUse) {
-      const now = new Date();
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          this.logger.error(`O link ${code} possui um protocolo de URL inválido.`);
 
-      const result = await this.prisma.link.updateMany({
-        where: {
-          id: link.id,
-          isSingleUse: true,
-          usedAt: null,
-          status: LinkStatus.ACTIVE,
-          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-        },
-        data: {
-          usedAt: now,
-        },
-      });
+          throw new BadRequestException(
+            'O destino deste link não é uma URL válida.',
+          );
+        }
 
-      if (result.count !== 1) {
-        throw new GoneException(
-          'Este link de uso único já foi utilizado ou não está mais disponível.',
-        );
-      }
-    }
+        // Consome o link de uso único atomicamente após validar a senha.
+        if (link.isSingleUse) {
+          const now = new Date();
 
-    const response = new UnlockLinkResponseDto();
-    response.url = url;
-    response.linkId = link.id;
+          const result = await this.prisma.link.updateMany({
+            where: {
+              id: link.id,
+              isSingleUse: true,
+              usedAt: null,
+              status: LinkStatus.ACTIVE,
+              OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+            },
+            data: {
+              usedAt: now,
+            },
+          });
 
-    return response;
+          if (result.count !== 1) {
+            throw new GoneException(
+              'Este link de uso único já foi utilizado ou não está mais disponível.',
+            );
+          }
+        }
+
+        const response = new UnlockLinkResponseDto();
+        response.url = url;
+        response.linkId = link.id;
+
+        return response;
+      },
+      { 'link.code': code },
+    );
   }
 
   // ── Listagem ───────────────────────────────────────────────────────────
