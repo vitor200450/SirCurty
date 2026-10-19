@@ -2,7 +2,10 @@
 environment: dev
 ingressClassName: nginx
 hosts:
-  app: sircurty.local
+  # Canonical app host: Google OAuth only accepts http origins for localhost.
+  app: localhost
+  # Alias that keeps working through the same ingress.
+  appAlias: sircurty.local
   grafana: grafana.sircurty.local
   otel: otel.sircurty.local
 api:

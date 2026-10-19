@@ -9,7 +9,7 @@ metadata:
   annotations:
     # Enable CORS so the browser SDK can POST traces directly to the collector
     nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "http://{{ .Values.hosts.app }}"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "http://{{ .Values.hosts.app }}, http://{{ .Values.hosts.appAlias }}"
     nginx.ingress.kubernetes.io/cors-allow-methods: "POST, OPTIONS"
     nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type,traceparent,tracestate,baggage"
     nginx.ingress.kubernetes.io/cors-max-age: "86400"

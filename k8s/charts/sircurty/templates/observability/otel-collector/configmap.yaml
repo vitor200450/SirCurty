@@ -19,6 +19,7 @@ data:
             # Allow CORS so the browser SDK can send directly to the collector
             cors:
               allowed_origins:
+                - "http://localhost"
                 - "http://sircurty.local"
                 - "http://*.sircurty.local"
               allowed_headers:

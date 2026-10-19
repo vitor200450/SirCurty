@@ -16,7 +16,7 @@ data:
   NODE_ENV: "production"
   PORT: "3000"
   # Same-origin through the ingress, but CORS must still accept the public origin
-  ALLOWED_ORIGINS: "http://{{ .Values.hosts.app }}"
+  ALLOWED_ORIGINS: "http://{{ .Values.hosts.app }},http://{{ .Values.hosts.appAlias }}"
   # One hop (ingress-nginx) in front of the API: real client IP for throttling/click stats
   TRUST_PROXY: "1"
   # Where API-side redirects (/s/:code fallbacks) send the browser
