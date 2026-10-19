@@ -27,7 +27,7 @@
       "id": 1,
       "options": {},
       "title": "Todos os Traces (frontend → API → banco)",
-      "type": "traces",
+      "type": "table",
       "targets": [
         {
           "datasource": { "type": "tempo", "uid": "tempo" },
@@ -53,7 +53,7 @@
       "id": 2,
       "options": {},
       "title": "Redirect — Cadeia Completa",
-      "type": "traces",
+      "type": "table",
       "targets": [
         {
           "datasource": { "type": "tempo", "uid": "tempo" },
@@ -79,7 +79,7 @@
       "id": 3,
       "options": {},
       "title": "Traces com Erro",
-      "type": "traces",
+      "type": "table",
       "targets": [
         {
           "datasource": { "type": "tempo", "uid": "tempo" },
@@ -98,7 +98,7 @@
       "id": 4,
       "options": {},
       "title": "Traces Lentos (> 1s)",
-      "type": "traces",
+      "type": "table",
       "targets": [
         {
           "datasource": { "type": "tempo", "uid": "tempo" },
