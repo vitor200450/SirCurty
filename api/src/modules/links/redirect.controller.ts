@@ -56,10 +56,9 @@ export class RedirectController {
           this.logger.warn(`Link indisponível: ${code} (HTTP ${status}).`);
 
           const frontendUrl = this.getFrontendUrl();
-          const destination = new URL('/link-destruido', frontendUrl);
+          const destination = new URL('/link-bloqueado', frontendUrl);
 
-          destination.searchParams.set('reason', 'indisponivel');
-          destination.searchParams.set('code', code);
+          destination.searchParams.set('reason', this.blockReason(error));
 
           return {
             url: destination.toString(),
@@ -86,6 +85,16 @@ export class RedirectController {
       // Mantém o tratamento padrão do NestJS para erros inesperados.
       throw error;
     }
+  }
+
+  /** Motivo exibido pela página /link-bloqueado do frontend. */
+  private blockReason(error: HttpException): 'consumido' | 'expirado' | 'desativado' {
+    const message = error.message.toLowerCase();
+
+    if (message.includes('uso único')) return 'consumido';
+    if (message.includes('expirou')) return 'expirado';
+
+    return 'desativado';
   }
 
   /**
