@@ -11,7 +11,9 @@ import type { Request } from 'express';
 import { LinksService } from './links.service.js';
 import { ClicksService } from '../clicks/clicks.service.js';
 
-@Controller('s')
+// `s` is served outside the /api prefix (see main.ts); `redirect` is the same handler under
+// /api, used by the SPA interstitial because the ingress routes /s/* to the frontend.
+@Controller(['s', 'redirect'])
 export class RedirectController {
   private readonly logger = new Logger(RedirectController.name);
 
