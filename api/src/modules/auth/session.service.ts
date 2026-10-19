@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../infrastructure/database/prisma.service.js';
 
@@ -31,9 +31,17 @@ export class SessionService {
     return { token, expiresAt };
   }
 
+  /**
+   * Resolves the user behind a session token.
+   *
+   * Returns null when the token is malformed, unknown or expired — the caller
+   * decides whether that is a hard failure or a fallback to another identity.
+   * Throwing here would make an expired cookie break every route that
+   * resolves ownership, including the ones that work fine anonymously.
+   */
   async validate(token: string) {
     if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
-      throw new UnauthorizedException('Invalid session');
+      return null;
     }
 
     const tokenHash = this.hashToken(token);
@@ -44,7 +52,7 @@ export class SessionService {
     });
 
     if (!session) {
-      throw new UnauthorizedException('Invalid session');
+      return null;
     }
 
     if (session.expiresAt.getTime() <= Date.now()) {
@@ -52,7 +60,7 @@ export class SessionService {
         where: { id: session.id },
       });
 
-      throw new UnauthorizedException('Session expired');
+      return null;
     }
 
     return session.user;

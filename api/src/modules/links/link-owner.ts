@@ -15,7 +15,14 @@ export async function resolveLinkOwner(
 
   if (sessionToken) {
     const user = await sessionService.validate(sessionToken);
-    return { userId: user.id };
+
+    if (user) {
+      return { userId: user.id };
+    }
+
+    // The cookie is present but no longer valid (expired, revoked or the
+    // record was removed). Falling back to the anonymous identity keeps the
+    // app usable; the stale cookie is ignored until the next login.
   }
 
   const anonId = req.ownerAnonId;
