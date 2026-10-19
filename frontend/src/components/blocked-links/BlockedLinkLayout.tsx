@@ -6,7 +6,7 @@ interface BlockedLinkLayoutProps {
   children: ReactNode;
   image: string;
   imageAlt: string;
-  theme: "consumido" | "expirado" | "desativado";
+  theme: "consumido" | "expirado" | "desativado" | "nao-encontrado";
 }
 
 export function BlockedLinkLayout({

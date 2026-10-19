@@ -4,7 +4,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { getLinkPreview, unlockLink } from "../lib/api";
 
-type BlockReason = "consumido" | "expirado" | "desativado";
+type BlockReason =
+  | "consumido"
+  | "expirado"
+  | "desativado"
+  | "nao-encontrado";
 
 const BLOCKED_LINK_ROUTE = "/link-bloqueado";
 
@@ -47,7 +51,7 @@ function getUnavailableReason(message: string): BlockReason | null {
     return "desativado";
   }
 
-  // Um código HTTP genérico não identifica com segurança o motivo.
+  // Código inexistente (404) ou removido (410).
   if (
     /\b(404|410)\b/.test(normalized) ||
     normalized.includes("not found") ||
@@ -58,7 +62,7 @@ function getUnavailableReason(message: string): BlockReason | null {
     normalized.includes("indisponível") ||
     normalized.includes("indisponivel")
   ) {
-    return null;
+    return "nao-encontrado";
   }
 
   return null;
