@@ -8,6 +8,9 @@ Marque cada item; se algum falhar, a coluna "Se falhar" aponta o primeiro lugar 
 - [ ] Kubernetes do Docker Desktop ativo: `kubectl get nodes` mostra `desktop-control-plane Ready`.
 - [ ] Ingress NGINX rodando: `kubectl get pods -n ingress-nginx` com o controller `1/1 Running`.
 - [ ] Arquivo hosts com `127.0.0.1 sircurty.local grafana.sircurty.local otel.sircurty.local`.
+- [ ] Google Client ID real no chart: `--set google.clientId=<id>.apps.googleusercontent.com`
+      (o default é placeholder: a API sobe, mas o login falha). A origem usada no navegador
+      precisa estar em "Authorized JavaScript origins" no Google Cloud Console.
 - [ ] Secret criado: `kubectl get secret sircurty-secrets -n sircurty` (some se o namespace for apagado).
 - [ ] Imagens locais: use uma tag nova a cada rebuild (`local2`, `local3`...) no `helm upgrade --set`;
       reusar `:local` faz o node manter a imagem antiga em cache (`IfNotPresent`).
@@ -39,6 +42,14 @@ Marque cada item; se algum falhar, a coluna "Se falhar" aponta o primeiro lugar 
 - [ ] Abrir o link curto → tela de interstitial com contagem 3‑2‑1 → redireciona para o destino.
 - [ ] Network: o fim da contagem chama `/api/redirect/<code>` e recebe `302` para o destino.
 - [ ] Voltar ao dashboard: o contador de cliques do link subiu.
+
+## 3.1 Login com Google
+
+- [ ] `/env-config.js` contém `GOOGLE_CLIENT_ID` com o ID real.
+- [ ] Sem login, `GET /api/auth/me` retorna `401`.
+- [ ] Botão de login do Google na navbar abre o popup; após login, nome/e-mail aparecem na navbar.
+- [ ] Links criados como anônimo antes do login continuam no dashboard depois do login.
+- [ ] Logout encerra a sessão (`/api/auth/me` volta a `401`) e o cookie `sircurty_session` some.
 
 ## 4. Features exclusivas
 
