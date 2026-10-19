@@ -162,15 +162,18 @@ export function useLinkPreview(code: string | undefined) {
 
     onError: (error: Error) => {
       const message = getErrorMessage(error);
+
+      // A senha errada responde 401 com "...link não encontrado" (resposta
+      // igual de propósito), então checa a senha antes de mapear o bloqueio.
+      if (isInvalidPasswordError(message)) {
+        setPasswordError("Senha incorreta! A chave não abre este cadeado. 🔑");
+        return;
+      }
+
       const reason = getUnavailableReason(message);
 
       if (reason) {
         navigateToBlockedPage(reason);
-        return;
-      }
-
-      if (isInvalidPasswordError(message)) {
-        setPasswordError("Senha incorreta! A chave não abre este cadeado. 🔑");
         return;
       }
 
