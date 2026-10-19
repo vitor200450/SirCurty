@@ -25,15 +25,15 @@ export function RedirectCountdown({
           return;
         }
 
-        // Direciona o acesso ao backend para processar o link.
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
-
-        const backendBaseUrl = apiBaseUrl.startsWith("http")
-          ? new URL(apiBaseUrl).origin
-          : window.location.origin;
+        // Direciona o acesso ao backend para processar o link (registra o
+        // clique e consome links de uso único). Usa /api/redirect porque o
+        // ingress envia /s/* para a SPA.
+        const apiBaseUrl = (
+          import.meta.env.VITE_API_BASE_URL || "/api"
+        ).replace(/\/$/, "");
 
         window.location.assign(
-          `${backendBaseUrl}/s/${encodeURIComponent(code)}`,
+          `${apiBaseUrl}/redirect/${encodeURIComponent(code)}`,
         );
       }, 1000);
 

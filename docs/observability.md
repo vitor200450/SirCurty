@@ -52,10 +52,10 @@ postgres (driver/SDK?) ─┘                           │
 
 ## Manifests sugeridos
 
-- `k8s/base/observability/namespace.yaml`
-- `k8s/base/observability/otel-collector/{configmap,deployment,service}.yaml`
-- `k8s/base/observability/tempo/{configmap,deployment,service,pvc}.yaml`
-- `k8s/base/observability/grafana/{configmap-datasources,dashboard-provisioning,deployment,service,pvc}.yaml`
+- `k8s/charts/sircurty/templates/observability/namespace.yaml`
+- `k8s/charts/sircurty/templates/observability/otel-collector/{configmap,deployment,service}.yaml`
+- `k8s/charts/sircurty/templates/observability/tempo/{configmap,deployment,service,pvc}.yaml`
+- `k8s/charts/sircurty/templates/observability/grafana/{configmap-datasources,dashboard-provisioning,deployment,service,pvc}.yaml`
 - (opcional) Prometheus/Loki.
 
 ## Datasources e dashboards (provisionados via ConfigMap)

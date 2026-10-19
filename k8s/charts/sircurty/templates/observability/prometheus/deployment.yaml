@@ -41,11 +41,11 @@ spec:
               mountPath: /prometheus
           resources:
             requests:
-              cpu: "200m"
-              memory: "512Mi"
+              cpu: "100m"
+              memory: "256Mi"
             limits:
-              cpu: "1000m"
-              memory: "2Gi"
+              cpu: "500m"
+              memory: "768Mi"   # sized for the ~4 GB local cluster
           readinessProbe:
             httpGet:
               path: /-/ready

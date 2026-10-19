@@ -2,7 +2,7 @@
 // patches global APIs (fetch, XHR) at require-time, so a late import misses
 // every instrumented call. ZoneContextManager requires zone.js.
 import "zone.js";
-import "./observability/tracing";
+import "./features/observability/tracing";
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -38,7 +38,13 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ""}>
+    <GoogleOAuthProvider
+      clientId={
+        window.__APP_CONFIG__?.GOOGLE_CLIENT_ID ||
+        import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+        ""
+      }
+    >
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BrowserRouter>

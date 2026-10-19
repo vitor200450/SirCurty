@@ -42,6 +42,7 @@ declare global {
       APP_ENV?: string;
       APP_BASE_URL?: string;
       OTEL_ENDPOINT?: string;
+      GOOGLE_CLIENT_ID?: string;
     };
   }
 }

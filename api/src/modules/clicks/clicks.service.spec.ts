@@ -150,7 +150,7 @@ describe('ClicksService.getStats', () => {
       { day: new Date('2026-06-02T00:00:00Z'), count: BigInt(4) },
     ]);
 
-    const result = await service.getStats(SLUG, OWNER);
+    const result = await service.getStats(SLUG, { anonId: OWNER });
 
     expect(result.code).toBe(SLUG);
     expect(result.total).toBe(7);
@@ -166,7 +166,7 @@ describe('ClicksService.getStats', () => {
     prisma.click.aggregate.mockResolvedValue({ _count: { id: 0 } });
     prisma.$queryRaw.mockResolvedValue([]);
 
-    const result = await service.getStats(SLUG, OWNER);
+    const result = await service.getStats(SLUG, { anonId: OWNER });
 
     expect(result.total).toBe(0);
     expect(result.dailyClicks).toEqual([]);
@@ -176,7 +176,7 @@ describe('ClicksService.getStats', () => {
     const { service, prisma } = makeService();
     prisma.link.findUnique.mockResolvedValue(null);
 
-    await expect(service.getStats(SLUG, OWNER)).rejects.toThrow(
+    await expect(service.getStats(SLUG, { anonId: OWNER })).rejects.toThrow(
       NotFoundException,
     );
   });
@@ -187,7 +187,7 @@ describe('ClicksService.getStats', () => {
       makeLink({ status: LinkStatus.DELETED }),
     );
 
-    await expect(service.getStats(SLUG, OWNER)).rejects.toThrow(
+    await expect(service.getStats(SLUG, { anonId: OWNER })).rejects.toThrow(
       NotFoundException,
     );
   });
@@ -198,7 +198,7 @@ describe('ClicksService.getStats', () => {
       makeLink({ ownerAnonId: OTHER_OWNER }),
     );
 
-    await expect(service.getStats(SLUG, OWNER)).rejects.toThrow(
+    await expect(service.getStats(SLUG, { anonId: OWNER })).rejects.toThrow(
       NotFoundException,
     );
   });
@@ -211,7 +211,7 @@ describe('ClicksService.getStats', () => {
     prisma.click.aggregate.mockResolvedValue({ _count: { id: 2 } });
     prisma.$queryRaw.mockResolvedValue([]);
 
-    const result = await service.getStats(SLUG, OWNER);
+    const result = await service.getStats(SLUG, { anonId: OWNER });
 
     expect(result.total).toBe(2);
   });
@@ -231,7 +231,7 @@ describe('ClicksService.getTopLinks', () => {
       makeLink({ id: 2, slug: 'link-two' }),
     ]);
 
-    const result = await service.getTopLinks(OWNER, 10);
+    const result = await service.getTopLinks({ anonId: OWNER }, 10);
 
     // link-two (id=2, 10 clicks) must appear before link-one (id=1, 5 clicks)
     expect(result[0].slug).toBe('link-two');
@@ -242,7 +242,7 @@ describe('ClicksService.getTopLinks', () => {
     const { service, prisma } = makeService();
     prisma.$queryRaw.mockResolvedValue([]);
 
-    const result = await service.getTopLinks(OWNER, 10);
+    const result = await service.getTopLinks({ anonId: OWNER }, 10);
 
     expect(result).toEqual([]);
     expect(prisma.link.findMany).not.toHaveBeenCalled();

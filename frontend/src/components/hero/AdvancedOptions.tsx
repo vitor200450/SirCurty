@@ -81,7 +81,7 @@ export default function AdvancedOptions({
               }`}
             >
               <span className="text-xs font-bold opacity-60 whitespace-nowrap">
-                http://localhost:5173/s/
+                {window.location.host}/s/
               </span>
 
               <input
