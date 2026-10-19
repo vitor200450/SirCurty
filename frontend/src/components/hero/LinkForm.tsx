@@ -32,7 +32,7 @@ export default function LinkForm({
       >
         <span
           className={`pl-4 text-xl ${
-            isDarkMode ? "text-purple-400/70" : "text-[#8B5E34]/70"
+            isDarkMode ? "text-purple-300/80" : "text-[#8B5E34]/70"
           }`}
           aria-hidden="true"
         >
@@ -47,7 +47,7 @@ export default function LinkForm({
           aria-label="Link longo para encurtar"
           className={`flex-1 min-w-0 bg-transparent outline-none py-3 text-base font-medium ${
             isDarkMode
-              ? "text-purple-200 placeholder-purple-800/70"
+              ? "text-purple-100 placeholder-purple-300/60"
               : "text-[#4E3629] placeholder-[#8B5E34]/60"
           }`}
         />

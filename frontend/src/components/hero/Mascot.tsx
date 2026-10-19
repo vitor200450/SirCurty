@@ -19,7 +19,7 @@ export default function Mascot({
           className={`absolute top-0 md:top-4 left-2 md:right-[340px] lg:right-[400px] z-20 w-[190px] md:w-[210px] p-5 rounded-[2.3rem] rounded-br-none shadow-xl border transition-all animate-bounce duration-300 backdrop-blur-sm ${
             isDarkMode
               ? "bg-[#2A1D52]/50 border-purple-500/30 text-white"
-              : "bg-[#FAF3E0] border-[#E5D5B3] text-[#4E3629]"
+              : "bg-[#FAF3E0]/60 border-[#E5D5B3] text-[#4E3629]"
           }`}
         >
           <p className="text-xs md:text-[13px] font-bold leading-relaxed text-center drop-shadow-md">
@@ -30,7 +30,7 @@ export default function Mascot({
             className={`absolute -bottom-2 right-4 w-4 h-4 transform rotate-45 border-b border-r ${
               isDarkMode
                 ? "bg-[#2A1D52]/80 border-purple-500/30"
-                : "bg-[#FAF3E0] border-[#E5D5B3]"
+                : "bg-[#FAF3E0]/60 border-[#E5D5B3]"
             }`}
             aria-hidden="true"
           />

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../features/auth/useAuth";
+import logoUrl from "../assets/sircurty-logo.png";
 
 interface NavbarProps {
   isDarkMode: boolean;
@@ -15,14 +16,11 @@ interface ThemeButtonProps {
 function Brand({ isDarkMode }: Pick<NavbarProps, "isDarkMode">) {
   return (
     <div className="flex items-center gap-3">
-      <div
-        className={`w-10 h-12 rounded-b-2xl rounded-t-sm flex items-center justify-center text-yellow-500 shadow-md ${
-          isDarkMode ? "bg-[#2A1D52]" : "bg-[#3B2A6B]"
-        }`}
-        aria-hidden="true"
-      >
-        🛡️
-      </div>
+      <img
+        src={logoUrl}
+        alt=""
+        className="h-10 w-auto shrink-0 drop-shadow-md -translate-y-[2px]"
+      />
 
       <div>
         <h1
@@ -33,7 +31,11 @@ function Brand({ isDarkMode }: Pick<NavbarProps, "isDarkMode">) {
           Sir Curty
         </h1>
 
-        <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-1">
+        <p
+          className={`text-xs uppercase tracking-widest mt-1.5 font-medium ${
+            isDarkMode ? "text-slate-400" : "text-[#4E3629]/80"
+          }`}
+        >
           O encurtador de links
         </p>
       </div>
@@ -148,15 +150,17 @@ function AccountActions({ isDarkMode }: Pick<NavbarProps, "isDarkMode">) {
 
 export default function Navbar({ isDarkMode, toggleTheme }: NavbarProps) {
   return (
-    <header className="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto z-50 relative">
-      <Brand isDarkMode={isDarkMode} />
+    <header className="absolute top-0 inset-x-0 z-50">
+      <div className="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
+        <Brand isDarkMode={isDarkMode} />
 
-      <Navigation isDarkMode={isDarkMode} />
+        <Navigation isDarkMode={isDarkMode} />
 
-      <div className="flex items-center gap-4">
-        <ThemeButton isDarkMode={isDarkMode} onToggle={toggleTheme} />
+        <div className="flex items-center gap-4">
+          <ThemeButton isDarkMode={isDarkMode} onToggle={toggleTheme} />
 
-        <AccountActions isDarkMode={isDarkMode} />
+          <AccountActions isDarkMode={isDarkMode} />
+        </div>
       </div>
     </header>
   );
