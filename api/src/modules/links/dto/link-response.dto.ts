@@ -11,6 +11,8 @@ export class LinkResponseDto {
   slug!: string;
   originalUrl!: string;
   isSingleUse!: boolean;
+  /** True once a single-use link has been redeemed (usedAt is set). */
+  isConsumed!: boolean;
   expiresAt!: Date | null;
   status!: LinkStatus;
   createdAt!: Date;
@@ -25,6 +27,7 @@ export class LinkResponseDto {
     dto.slug = link.slug;
     dto.originalUrl = link.originalUrl;
     dto.isSingleUse = link.isSingleUse;
+    dto.isConsumed = link.isSingleUse && link.usedAt !== null;
     dto.expiresAt = link.expiresAt;
     dto.status = link.status;
     dto.createdAt = link.createdAt;
