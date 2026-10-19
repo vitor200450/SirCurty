@@ -59,6 +59,12 @@ describe('Application (e2e)', () => {
 
   afterEach(async () => {
     if (testSlug) {
+      // Delete clicks first — the FK on clicks.link_id is RESTRICT,
+      // so the link cannot be removed while click records reference it.
+      const link = await prisma.link.findUnique({ where: { slug: testSlug } });
+      if (link) {
+        await prisma.click.deleteMany({ where: { linkId: link.id } });
+      }
       await prisma.link.deleteMany({
         where: { slug: testSlug },
       });
@@ -93,19 +99,13 @@ describe('Application (e2e)', () => {
     });
 
     const results = await Promise.all([
-      request(app.getHttpServer())
-        .get(`/s/${testSlug}`)
-        .redirects(0),
-      request(app.getHttpServer())
-        .get(`/s/${testSlug}`)
-        .redirects(0),
+      request(app.getHttpServer()).get(`/s/${testSlug}`).redirects(0),
+      request(app.getHttpServer()).get(`/s/${testSlug}`).redirects(0),
     ]);
 
     expect(results.map((result) => result.status).sort()).toEqual([302, 410]);
 
-    const successfulRedirect = results.find(
-      (result) => result.status === 302,
-    );
+    const successfulRedirect = results.find((result) => result.status === 302);
 
     expect(successfulRedirect?.headers.location).toBe(
       'https://example.com/destination',

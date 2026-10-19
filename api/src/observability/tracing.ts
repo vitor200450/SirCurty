@@ -84,21 +84,23 @@ const sdk = new NodeSDK({
 // ---------------------------------------------------------------------------
 // Start — synchronous so it finishes before any require() that follows
 // ---------------------------------------------------------------------------
-sdk.start();
+if (process.env.NODE_ENV !== 'test') {
+  sdk.start();
+}
 
-// Flush remaining spans on graceful shutdown
-process.on('SIGTERM', () => {
-  sdk
-    .shutdown()
-    .then(() => console.log('[otel] SDK shut down successfully'))
-    .catch((err) => console.error('[otel] Error shutting down SDK', err))
-    .finally(() => process.exit(0));
-});
+/**
+ * Flush pending spans and shut down the OpenTelemetry SDK.
+ * Called by NestJS during graceful application shutdown.
+ */
+export async function shutdownTracing(): Promise<void> {
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
 
-process.on('SIGINT', () => {
-  sdk
-    .shutdown()
-    .then(() => console.log('[otel] SDK shut down successfully'))
-    .catch((err) => console.error('[otel] Error shutting down SDK', err))
-    .finally(() => process.exit(0));
-});
+  try {
+    await sdk.shutdown();
+    console.log('[otel] SDK shut down successfully');
+  } catch (err: unknown) {
+    console.error('[otel] Error shutting down SDK', err);
+  }
+}

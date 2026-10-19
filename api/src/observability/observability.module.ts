@@ -1,13 +1,22 @@
-import { Module, Global } from '@nestjs/common';
-import { TracingService } from './tracing.service';
+import {
+  Global,
+  Injectable,
+  Module,
+  type OnApplicationShutdown,
+} from '@nestjs/common';
+import { shutdownTracing } from './tracing.js';
+import { TracingService } from './tracing.service.js';
 
-/**
- * Global module that exposes TracingService to every other module.
- * Import once in AppModule — no need to add to each feature module.
- */
+@Injectable()
+class TracingShutdownService implements OnApplicationShutdown {
+  async onApplicationShutdown(): Promise<void> {
+    await shutdownTracing();
+  }
+}
+
 @Global()
 @Module({
-  providers: [TracingService],
+  providers: [TracingService, TracingShutdownService],
   exports: [TracingService],
 })
 export class ObservabilityModule {}

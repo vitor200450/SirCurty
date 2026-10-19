@@ -17,6 +17,6 @@
     "^(\\.{1,2}/.*)\\.js$": "$1"
   },
   "transformIgnorePatterns": [
-    "/node_modules/(?!@nestjs/config)"
+    "/node_modules/(?!(@nestjs/config|@nestjs/common|@nestjs/core|@nestjs/platform-express|@nestjs/testing|@nestjs/schematics)/)"
   ]
 }

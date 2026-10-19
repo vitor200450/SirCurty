@@ -51,7 +51,9 @@ function hashId(rawId: string): string {
 @Injectable()
 export class AnonymousMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
-    const rawId = parseCookie(req.headers['cookie'], ANON_COOKIE_NAME) ?? this.issueNewCookie(req, res);
+    const rawId =
+      parseCookie(req.headers['cookie'], ANON_COOKIE_NAME) ??
+      this.issueNewCookie(req, res);
     req.ownerAnonId = hashId(rawId);
     next();
   }

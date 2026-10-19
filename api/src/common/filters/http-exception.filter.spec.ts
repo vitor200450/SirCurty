@@ -16,32 +16,43 @@ function makeHost(url = '/api/test'): ArgumentsHost {
 
 function captureResponse(host: ArgumentsHost): jest.Mock {
   const http = host.switchToHttp();
-  return (http.getResponse() as { status: jest.Mock }).status;
+  const response = http.getResponse<{ status: jest.Mock }>();
+  return response.status;
 }
 
 function getBody(host: ArgumentsHost): ErrorResponse {
   const http = host.switchToHttp();
-  const res = http.getResponse() as { status: jest.Mock };
-  const jsonMock = res.status.mock.results[0]?.value?.json as jest.Mock;
-  return jsonMock?.mock.calls[0]?.[0] as ErrorResponse;
+  const res = http.getResponse<{ status: jest.Mock }>();
+  const jsonMock = res.status.mock.results[0]?.value as
+    { json: jest.Mock } | undefined;
+  return jsonMock?.json.mock.calls[0]?.[0] as ErrorResponse;
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('HttpExceptionFilter', () => {
   let filter: HttpExceptionFilter;
+  let warnSpy: jest.SpyInstance;
+  let errorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     filter = new HttpExceptionFilter();
-    jest.spyOn(filter['logger'], 'warn').mockImplementation(() => undefined);
-    jest.spyOn(filter['logger'], 'error').mockImplementation(() => undefined);
+    warnSpy = jest
+      .spyOn(filter['logger'], 'warn')
+      .mockImplementation(() => undefined);
+    errorSpy = jest
+      .spyOn(filter['logger'], 'error')
+      .mockImplementation(() => undefined);
   });
 
   // ── Response shape ────────────────────────────────────────────────────
 
   it('always includes statusCode, message, timestamp, path', () => {
     const host = makeHost('/api/links');
-    filter.catch(new HttpException('bad request', HttpStatus.BAD_REQUEST), host);
+    filter.catch(
+      new HttpException('bad request', HttpStatus.BAD_REQUEST),
+      host,
+    );
     const body = getBody(host);
     expect(body).toMatchObject({
       statusCode: 400,
@@ -83,7 +94,10 @@ describe('HttpExceptionFilter', () => {
   it('extracts string from object response', () => {
     const host = makeHost();
     filter.catch(
-      new HttpException({ message: 'Forbidden resource' }, HttpStatus.FORBIDDEN),
+      new HttpException(
+        { message: 'Forbidden resource' },
+        HttpStatus.FORBIDDEN,
+      ),
       host,
     );
     expect(captureResponse(host)).toHaveBeenCalledWith(403);
@@ -120,10 +134,11 @@ describe('HttpExceptionFilter', () => {
 
   it('maps P2025 to 404 Not Found', () => {
     const host = makeHost();
-    const err = new Prisma.PrismaClientKnownRequestError(
-      'Record not found',
-      { code: 'P2025', clientVersion: '7.0.0', meta: {} },
-    );
+    const err = new Prisma.PrismaClientKnownRequestError('Record not found', {
+      code: 'P2025',
+      clientVersion: '7.0.0',
+      meta: {},
+    });
     filter.catch(err, host);
     expect(captureResponse(host)).toHaveBeenCalledWith(404);
     expect(getBody(host).message).toBe('Resource not found');
@@ -205,24 +220,28 @@ describe('HttpExceptionFilter', () => {
   it('logs warn for mapped Prisma errors', () => {
     const host = makeHost();
     const err = new Prisma.PrismaClientKnownRequestError('Unique', {
-      code: 'P2002', clientVersion: '7.0.0', meta: {},
+      code: 'P2002',
+      clientVersion: '7.0.0',
+      meta: {},
     });
     filter.catch(err, host);
-    expect(filter['logger'].warn).toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
   });
 
   it('logs error for unmapped Prisma errors', () => {
     const host = makeHost();
     const err = new Prisma.PrismaClientKnownRequestError('Unknown', {
-      code: 'P9999', clientVersion: '7.0.0', meta: {},
+      code: 'P9999',
+      clientVersion: '7.0.0',
+      meta: {},
     });
     filter.catch(err, host);
-    expect(filter['logger'].error).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
   });
 
   it('logs error for unhandled exceptions', () => {
     const host = makeHost();
     filter.catch(new Error('boom'), host);
-    expect(filter['logger'].error).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
   });
 });

@@ -1,16 +1,38 @@
+import './observability/tracing.js';
 import { NestFactory, Reflector } from '@nestjs/core';
-import { ClassSerializerInterceptor, RequestMethod, ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import {
+  ClassSerializerInterceptor,
+  RequestMethod,
+  ValidationPipe,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Enable graceful shutdown so NestJS lifecycle hooks (OnModuleDestroy) fire
+  // on SIGTERM/SIGINT. This allows PrismaService to close the DB connection
+  // cleanly before the pod is removed from the load-balancer endpoints.
+  app.enableShutdownHooks();
 
   // Resolve ConfigService after the module graph is built so all values
   // come from the validated configuration (defaults applied, types coerced).
   const config = app.get(ConfigService);
+
+  // ── Reverse-proxy trust ────────────────────────────────────────────────
+  // In Kubernetes with a single Nginx ingress, set TRUST_PROXY=1 in the
+  // ConfigMap/Secret so Express correctly reads X-Forwarded-For and
+  // X-Forwarded-Proto. Default is 0 (no proxy) to avoid trusting spoofed
+  // headers in direct-connect environments.
+  const trustProxy = config.get<number | string>('TRUST_PROXY', 0);
+  const trustProxyValue: number | boolean =
+    trustProxy === 'false' || trustProxy === 0 ? false : Number(trustProxy);
+  // NestExpressApplication exposes set() with proper typing from @types/express-serve-static-core
+  app.set('trust proxy', trustProxyValue);
 
   // ── Security headers ───────────────────────────────────────────────────
   app.use(helmet());
@@ -19,15 +41,23 @@ async function bootstrap() {
   app.setGlobalPrefix('api', {
     exclude: [
       { path: 's/*', method: RequestMethod.GET },
-      { path: 'health/live', method: RequestMethod.GET },
-      { path: 'health/ready', method: RequestMethod.GET },
+      // Health endpoints are excluded from the /api prefix so Kubernetes
+      // liveness/readiness probes can reach them at /health/live and /health/ready
+      // without needing to know the API prefix.
+      { path: 'health/*', method: RequestMethod.GET },
     ],
   });
 
   // ── CORS ───────────────────────────────────────────────────────────────
   // Credentials required for the anonymous cookie (sircurty_anon_id).
-  const rawOrigins = config.get<string>('ALLOWED_ORIGINS', 'http://localhost:5173');
-  const allowedOrigins = rawOrigins.split(',').map((o) => o.trim()).filter(Boolean);
+  const rawOrigins = config.get<string>(
+    'ALLOWED_ORIGINS',
+    'http://localhost:5173',
+  );
+  const allowedOrigins = rawOrigins
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
 
   app.enableCors({
     origin: allowedOrigins,
@@ -62,4 +92,7 @@ async function bootstrap() {
   await app.listen(port);
 }
 
-bootstrap();
+bootstrap().catch((err: unknown) => {
+  console.error('Fatal error during bootstrap:', err);
+  process.exit(1);
+});

@@ -9,24 +9,51 @@ import {
 import { Request, Response } from 'express';
 import { Prisma } from '../../generated/prisma/client.js';
 
-/**
- * Prisma error codes mapped to HTTP status + user-facing message.
- * Only codes that can reasonably occur in the link-shortener domain are handled.
- * Unknown codes fall through to 500.
- *
- * Reference: https://www.prisma.io/docs/reference/api-reference/error-reference
- */
-const PRISMA_ERROR_MAP: Record<string, { statusCode: number; message: string }> = {
-  // Unique constraint violation (slug/email already taken)
-  P2002: { statusCode: HttpStatus.CONFLICT, message: 'Resource already exists' },
-  // Record not found (findUniqueOrThrow / updateOrThrow)
-  P2025: { statusCode: HttpStatus.NOT_FOUND, message: 'Resource not found' },
-  // Foreign key constraint violation
-  P2003: { statusCode: HttpStatus.UNPROCESSABLE_ENTITY, message: 'Related resource not found' },
-  // Required field missing at the query level
-  P2011: { statusCode: HttpStatus.BAD_REQUEST, message: 'Missing required field' },
-  // Value too long for column type
-  P2000: { statusCode: HttpStatus.BAD_REQUEST, message: 'Input value is too long' },
+const PRISMA_ERROR_MAP: Record<
+  string,
+  { statusCode: number; message: string }
+> = {
+  P2002: {
+    statusCode: HttpStatus.CONFLICT,
+    message: 'Este recurso já existe.',
+  },
+  P2025: {
+    statusCode: HttpStatus.NOT_FOUND,
+    message: 'Recurso não encontrado.',
+  },
+  P2003: {
+    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'O recurso relacionado não foi encontrado.',
+  },
+  P2011: {
+    statusCode: HttpStatus.BAD_REQUEST,
+    message: 'Um campo obrigatório não foi informado.',
+  },
+  P2000: {
+    statusCode: HttpStatus.BAD_REQUEST,
+    message: 'Um dos valores informados é muito longo.',
+  },
+};
+
+const VALIDATION_MESSAGES: Record<string, string> = {
+  'should not be empty': 'não pode ficar vazio',
+  'should not be null or undefined': 'é obrigatório',
+  'must be a string': 'deve ser um texto',
+  'must be a number conforming to the specified constraints':
+    'deve ser um número válido',
+  'must be an integer number': 'deve ser um número inteiro',
+  'must be a boolean value': 'deve ser verdadeiro ou falso',
+  'must be a valid URL': 'deve ser uma URL válida',
+  'must be a valid ISO 8601 date string':
+    'deve ser uma data válida no formato ISO 8601',
+  'must be a URL address': 'deve ser um endereço URL válido',
+  'must be shorter than or equal to 32 characters':
+    'deve ter no máximo 32 caracteres',
+  'must be longer than or equal to 3 characters':
+    'deve ter pelo menos 3 caracteres',
+  'must be shorter than or equal to 128 characters':
+    'deve ter no máximo 128 caracteres',
+  'property should not exist': 'contém uma propriedade não permitida',
 };
 
 export interface ErrorResponse {
@@ -57,72 +84,128 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(statusCode).json(body);
   }
 
+  private translateValidationMessage(message: string): string {
+    let translated = message;
+
+    for (const [english, portuguese] of Object.entries(VALIDATION_MESSAGES)) {
+      translated = translated.replaceAll(english, portuguese);
+    }
+
+    return translated;
+  }
+
+  private translateMessage(message: string | string[]): string | string[] {
+    if (Array.isArray(message)) {
+      return message.map((item) => this.translateValidationMessage(item));
+    }
+
+    return this.translateValidationMessage(message);
+  }
+
   private resolve(
     exception: unknown,
     path: string,
   ): { statusCode: number; message: string | string[] } {
-    // ── NestJS HttpException ──────────────────────────────────────────────
+    // Exceções HTTP do NestJS
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const res = exception.getResponse();
 
-      // res can be: string | { message: string | string[]; error?: string; statusCode?: number }
       if (typeof res === 'string') {
-        return { statusCode: status, message: res };
+        return {
+          statusCode: status,
+          message: this.translateMessage(res),
+        };
       }
 
       if (typeof res === 'object' && res !== null) {
         const body = res as Record<string, unknown>;
         const msg = body['message'];
 
-        // ValidationPipe produces message as string[] — preserve the array
         if (Array.isArray(msg)) {
-          return { statusCode: status, message: msg as string[] };
+          const messages = msg.filter(
+            (item): item is string => typeof item === 'string',
+          );
+
+          return {
+            statusCode: status,
+            message: this.translateMessage(messages),
+          };
         }
 
         if (typeof msg === 'string') {
-          return { statusCode: status, message: msg };
+          return {
+            statusCode: status,
+            message: this.translateMessage(msg),
+          };
         }
       }
 
-      // Fallback to the exception's own message
-      return { statusCode: status, message: exception.message };
+      return {
+        statusCode: status,
+        message: this.translateMessage(exception.message),
+      };
     }
 
-    // ── Prisma known request errors ───────────────────────────────────────
+    // Erros conhecidos do Prisma
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       const mapped = PRISMA_ERROR_MAP[exception.code];
+
       if (mapped) {
         this.logger.warn(
-          `Prisma ${exception.code} at ${path}: ${exception.message}`,
+          `Erro Prisma ${exception.code} em ${path}: ${exception.message}`,
         );
+
         return mapped;
       }
-      // Unmapped Prisma error → 500, no internal detail exposed
+
       this.logger.error(
-        `Unmapped Prisma error ${exception.code} at ${path}`,
+        `Erro Prisma não mapeado ${exception.code} em ${path}`,
         exception.stack,
       );
-      return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Internal server error' };
+
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Ocorreu um erro interno no servidor.',
+      };
     }
 
-    // ── Prisma validation error (bad query shape, not user input) ─────────
+    // Erros de validação interna do Prisma
     if (exception instanceof Prisma.PrismaClientValidationError) {
-      this.logger.error(`Prisma validation error at ${path}`, exception.message);
-      return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Internal server error' };
+      this.logger.error(
+        `Erro de validação do Prisma em ${path}`,
+        exception.message,
+      );
+
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Ocorreu um erro interno no servidor.',
+      };
     }
 
-    // ── Prisma initialization error ───────────────────────────────────────
+    // Erros de inicialização ou conexão do Prisma
     if (exception instanceof Prisma.PrismaClientInitializationError) {
-      this.logger.error(`Prisma initialization error at ${path}`, exception.message);
-      return { statusCode: HttpStatus.SERVICE_UNAVAILABLE, message: 'Service temporarily unavailable' };
+      this.logger.error(
+        `Erro de inicialização do Prisma em ${path}`,
+        exception.message,
+      );
+
+      return {
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        message:
+          'Serviço temporariamente indisponível. Tente novamente mais tarde.',
+      };
     }
 
-    // ── Unknown / unhandled ───────────────────────────────────────────────
+    // Exceções desconhecidas
     this.logger.error(
-      `Unhandled exception at ${path}`,
+      `Exceção não tratada em ${path}`,
       exception instanceof Error ? exception.stack : String(exception),
     );
-    return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Internal server error' };
+
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Ocorreu um erro interno no servidor.',
+    };
   }
 }
