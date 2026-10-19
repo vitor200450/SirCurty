@@ -28,6 +28,14 @@ spec:
     syncOptions:
       - CreateNamespace=true        # creates namespaces if missing
       - ServerSideApply=true        # handles large ConfigMaps (dashboard JSONs)
+    # O StatefulSet do postgres ganha campos do API server (volumeMode, status.phase)
+    # nos volumeClaimTemplates que não estão no chart, gerando diff permanente.
+    ignoreDifferences:
+      - group: apps
+        kind: StatefulSet
+        name: postgres
+        jqPathExpressions:
+          - .spec.volumeClaimTemplates[]?
     retry:
       limit: 3
       backoff:
