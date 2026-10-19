@@ -1,10 +1,11 @@
 {
   "__inputs": [],
   "__requires": [
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
     { "type": "datasource", "id": "tempo", "name": "Tempo", "version": "1.0.0" }
   ],
   "annotations": { "list": [] },
-  "description": "Sir Curty — Visão Geral: requisições, erros e traces recentes",
+  "description": "Sir Curty — Visão Geral: volume de requisições e erros via span metrics (Prometheus) e navegação de traces via Tempo.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -19,86 +20,101 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Total de requisições recebidas pela API no período",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Total de spans gerados pela API no período.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 100 },
-              { "color": "red", "value": 500 }
-            ]
-          },
-          "unit": "short",
-          "mappings": []
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
       "id": 1,
       "options": {
-        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "orientation": "auto",
         "textMode": "auto",
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "area"
       },
-      "title": "Total Requisições",
+      "title": "Total de Spans (API)",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" } | count()",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traces_spanmetrics_calls_total{service=\"sircurty-api\"})",
+          "legendFormat": "spans",
           "refId": "A"
         }
       ]
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Total de spans com erro na API no período",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Total de redirects resolvidos (links.redirect).",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 10 }
-            ]
-          },
-          "unit": "short",
-          "mappings": []
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
       "id": 2,
       "options": {
-        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "orientation": "auto",
         "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none"
+        "colorMode": "value",
+        "graphMode": "area"
       },
-      "title": "Erros (status=error)",
+      "title": "Cliques (redirects)",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && status=error } | count()",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=\"links.redirect\"})",
+          "legendFormat": "cliques",
           "refId": "A"
         }
       ]
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Traces lentos com duração acima de 1 segundo",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Links criados via links.create.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "title": "Links Criados",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=\"links.create\"})",
+          "legendFormat": "criados",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Spans com status de erro.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -106,66 +122,29 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 5 }
+              { "color": "red", "value": 1 }
             ]
           },
-          "unit": "short",
-          "mappings": []
+          "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
-      "id": 3,
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
       "options": {
-        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "orientation": "auto",
         "textMode": "auto",
         "colorMode": "background",
         "graphMode": "none"
       },
-      "title": "Traces Lentos (> 1s)",
+      "title": "Erros",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && duration > 1s } | count()",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Total de spans gerados pelo frontend no período",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "blue", "value": null }]
-          },
-          "unit": "short",
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
-      "id": 4,
-      "options": {
-        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "area"
-      },
-      "title": "Spans Frontend",
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-frontend\" } | count()",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traces_spanmetrics_calls_total{service=\"sircurty-api\", status_code=\"STATUS_CODE_ERROR\"})",
+          "legendFormat": "erros",
           "refId": "A"
         }
       ]
@@ -174,111 +153,88 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "id": 101,
-      "title": "Requisições ao longo do tempo",
+      "title": "Volume",
       "type": "row"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Volume de requisições à API ao longo do tempo",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Requisições por segundo, por classe de operação. Ideal para ver o dashboard subindo durante a demo.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
           "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
             "drawStyle": "bars",
             "fillOpacity": 60,
-            "gradientMode": "none",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "lineInterpolation": "linear",
             "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": { "type": "linear" },
             "showPoints": "never",
-            "spanNulls": false,
-            "stacking": { "group": "A", "mode": "none" },
-            "thresholdsStyle": { "mode": "off" }
+            "stacking": { "group": "A", "mode": "none" }
           },
-          "unit": "short"
+          "unit": "reqps"
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
       "id": 5,
       "options": {
-        "legend": { "calcs": ["sum", "max"], "displayMode": "table", "placement": "bottom" },
+        "legend": { "calcs": ["sum"], "displayMode": "list", "placement": "bottom" },
         "tooltip": { "mode": "single", "sort": "none" }
       },
-      "title": "Requisições à API por intervalo",
+      "title": "Requisições por segundo",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" } | count()",
-          "legendFormat": "requisições",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=~\"links.*\"}[1m])) by (span_name)",
+          "legendFormat": "{{span_name}}",
           "refId": "A"
         }
       ]
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Erros ao longo do tempo — útil para identificar picos de falha",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Latência p95 dos redirects. Query mais útil para provar que o stack responde rápido.",
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "red" },
+          "color": { "mode": "palette-classic" },
           "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 60,
-            "gradientMode": "none",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": { "type": "linear" },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": { "group": "A", "mode": "none" },
-            "thresholdsStyle": { "mode": "off" }
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never"
           },
-          "unit": "short"
+          "unit": "s"
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
       "id": 6,
       "options": {
-        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom" },
-        "tooltip": { "mode": "single", "sort": "none" }
+        "legend": { "calcs": ["mean", "max"], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "none" }
       },
-      "title": "Erros ao longo do tempo",
+      "title": "Latência p95 por operação",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && status=error } | count()",
-          "legendFormat": "erros",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{service=\"sircurty-api\", span_name=~\"links.*\"}[1m])) by (le, span_name))",
+          "legendFormat": "p95 {{span_name}}",
           "refId": "A"
         }
       ]
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
       "id": 102,
       "title": "Traces recentes",
       "type": "row"
     },
     {
       "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Últimos traces da API — clique num trace para ver o waterfall completo",
+      "description": "Últimos traces da API. Clique num trace para abrir o waterfall completo (API → Postgres).",
       "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 15 },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 16 },
       "id": 7,
       "options": {},
       "title": "Traces recentes (API)",
@@ -286,10 +242,10 @@
       "targets": [
         {
           "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
           "query": "{ resource.service.name=\"sircurty-api\" }",
           "limit": 20,
-          "refId": "A"
+          "refId": "A",
+          "tableType": "traces"
         }
       ]
     }
@@ -303,5 +259,5 @@
   "timezone": "browser",
   "title": "Sir Curty — Visão Geral",
   "uid": "sircurty-overview",
-  "version": 2
+  "version": 4
 }

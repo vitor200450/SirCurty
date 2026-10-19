@@ -23,6 +23,9 @@ data:
             datasourceUid: ""
           nodeGraph:
             enabled: true
+          # Service Graph reads traces_service_graph_request_total from Prometheus.
+          serviceMap:
+            datasourceUid: prometheus
           traceQuery:
             timeShiftEnabled: true
             spanStartTimeShift: "-1h"
@@ -33,3 +36,18 @@ data:
             hide: false
           lokiSearch:
             datasourceUid: ""
+
+      # Backs the TraceQL metric queries in the dashboards and the Service Graph.
+      # Tempo's metrics-generator remote-writes span metrics here.
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://prometheus.observability.svc.cluster.local:9090
+        isDefault: false
+        editable: false
+        jsonData:
+          httpMethod: GET
+          prometheusType: Prometheus
+          prometheusVersion: 2.54.1
+          timeInterval: 15s
