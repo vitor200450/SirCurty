@@ -32,12 +32,13 @@ describe('resolveLinkOwner', () => {
   });
 
   it('falls back to the anonymous identity when there is no session cookie', async () => {
-    const sessionService = makeSessionService({ id: 7 });
+    const validate = jest.fn().mockResolvedValue({ id: 7 });
+    const sessionService = { validate } as unknown as SessionService;
 
     const owner = await resolveLinkOwner(makeRequest(), sessionService);
 
     expect(owner).toEqual({ anonId: ANON_ID });
-    expect(sessionService.validate).not.toHaveBeenCalled();
+    expect(validate).not.toHaveBeenCalled();
   });
 
   it('falls back to the anonymous identity when the session expired', async () => {
