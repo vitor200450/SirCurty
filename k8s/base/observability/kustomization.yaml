@@ -20,6 +20,11 @@ resources:
   - grafana/pvc.yaml
   - grafana/deployment.yaml
   - grafana/service.yaml
+  # Prometheus — receives span metrics from Tempo's metrics-generator
+  - prometheus/configmap.yaml
+  - prometheus/pvc.yaml
+  - prometheus/deployment.yaml
+  - prometheus/service.yaml
   # Ingresses
   - ingress-grafana.yaml
   - ingress-otel.yaml

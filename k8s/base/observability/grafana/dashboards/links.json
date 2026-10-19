@@ -1,10 +1,11 @@
 {
   "__inputs": [],
   "__requires": [
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
     { "type": "datasource", "id": "tempo", "name": "Tempo", "version": "1.0.0" }
   ],
   "annotations": { "list": [] },
-  "description": "Sir Curty — Links: cliques, ranking, domínios e status",
+  "description": "Sir Curty — Links: cliques, ranking por código, domínios de destino e traces de cada operação.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -19,78 +20,70 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Total de cliques registrados no período selecionado",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Cliques totais (links.redirect).",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "blue", "value": null }]
-          },
-          "unit": "short",
-          "mappings": []
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
       "id": 1,
       "options": {
-        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "orientation": "auto",
         "textMode": "auto",
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "area"
       },
       "title": "Total de Cliques",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && name=\"links.redirect\" } | count()",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=\"links.redirect\"})",
+          "legendFormat": "cliques",
           "refId": "A"
         }
       ]
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Total de links encurtados criados no período",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Links criados (links.create).",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "purple", "value": null }]
-          },
-          "unit": "short",
-          "mappings": []
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] },
+          "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
       "id": 2,
       "options": {
-        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "orientation": "auto",
         "textMode": "auto",
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "area"
       },
       "title": "Links Criados",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && name=\"links.create\" } | count()",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=\"links.create\"})",
+          "legendFormat": "criados",
           "refId": "A"
         }
       ]
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Links bloqueados pelo filtro de segurança",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Tentativas de desbloqueio por senha.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -98,69 +91,60 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "orange", "value": 1 },
-              { "color": "red", "value": 5 }
+              { "color": "orange", "value": 1 }
             ]
           },
-          "unit": "short",
-          "mappings": []
+          "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
       "id": 3,
       "options": {
-        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "orientation": "auto",
         "textMode": "auto",
         "colorMode": "background",
         "graphMode": "none"
       },
-      "title": "Links Bloqueados",
+      "title": "Desbloqueios",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && name=\"links.blocked\" } | count()",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=\"links.unlock\"})",
+          "legendFormat": "desbloqueios",
           "refId": "A"
         }
       ]
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Links expirados (data/hora ou uso único consumido)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Domínios distintos mais encurtados.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 1 }
-            ]
-          },
-          "unit": "short",
-          "mappings": []
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
       "id": 4,
       "options": {
-        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "orientation": "auto",
         "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none"
+        "colorMode": "value",
+        "graphMode": "area"
       },
-      "title": "Links Expirados/Consumidos",
+      "title": "Domínios",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && name=\"links.expired\" } | count()",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "count(count(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=\"links.create\"}) by (link_target_domain))",
+          "legendFormat": "domínios",
           "refId": "A"
         }
       ]
@@ -173,29 +157,19 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Volume de cliques por hora — ideal para ver picos no pitch",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Volume de cliques por hora — o painel que sobe ao vivo durante a demo.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
           "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
             "drawStyle": "bars",
             "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "lineInterpolation": "linear",
             "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": { "type": "linear" },
             "showPoints": "never",
-            "spanNulls": false,
-            "stacking": { "group": "A", "mode": "none" },
-            "thresholdsStyle": { "mode": "off" }
+            "stacking": { "group": "A", "mode": "none" }
           },
-          "unit": "short"
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -205,13 +179,12 @@
         "legend": { "calcs": ["sum", "max"], "displayMode": "table", "placement": "bottom" },
         "tooltip": { "mode": "single", "sort": "none" }
       },
-      "title": "Cliques por hora",
+      "title": "Cliques por intervalo",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && name=\"links.redirect\" } | count()",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=\"links.redirect\"}[1m]))",
           "legendFormat": "cliques",
           "refId": "A"
         }
@@ -225,8 +198,8 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Top links por número de cliques — span attribute link.code",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Top códigos por número de cliques. Dimension link_code vem do atributo do span.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -238,26 +211,14 @@
               { "color": "orange", "value": 50 }
             ]
           },
-          "unit": "short",
-          "custom": {
-            "align": "auto",
-            "displayMode": "color-background-solid",
-            "filterable": true
-          }
+          "unit": "short"
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "link.code" },
+            "matcher": { "id": "byName", "options": "link_code" },
             "properties": [
               { "id": "displayName", "value": "Código" },
-              { "id": "custom.width", "value": 120 }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Value" },
-            "properties": [
-              { "id": "displayName", "value": "Cliques" },
-              { "id": "custom.width", "value": 100 }
+              { "id": "custom.width", "value": 140 }
             ]
           }
         ]
@@ -267,29 +228,27 @@
       "options": {
         "footer": { "show": false },
         "showHeader": true,
-        "sortBy": [{ "desc": true, "displayName": "Cliques" }]
+        "sortBy": [{ "desc": true, "displayName": "Value" }]
       },
       "title": "Top Links por Cliques",
       "type": "table",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && name=\"links.redirect\" } | count() by(span.link.code)",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=\"links.redirect\"}) by (link_code)",
+          "format": "table",
+          "instant": true,
           "refId": "A"
         }
       ]
     },
     {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "description": "Domínios de destino mais encurtados — span attribute link.target_domain",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Domínios de destino mais encurtados.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": {
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
-          },
-          "unit": "short"
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }
         },
         "overrides": []
       },
@@ -305,10 +264,36 @@
       "type": "piechart",
       "targets": [
         {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "queryType": "traceql",
-          "query": "{ resource.service.name=\"sircurty-api\" && name=\"links.create\" } | count() by(span.link.target_domain)",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traces_spanmetrics_calls_total{service=\"sircurty-api\", span_name=\"links.create\"}) by (link_target_domain)",
+          "legendFormat": "{{link_target_domain}}",
           "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+      "id": 103,
+      "title": "Traces",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "description": "Traces de cada operação. Clique para abrir o waterfall com as queries ao Postgres.",
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 26 },
+      "id": 8,
+      "options": {},
+      "title": "Operações de links",
+      "type": "traces",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "query": "{ resource.service.name=\"sircurty-api\" && name=~\"links.*\" }",
+          "limit": 30,
+          "refId": "A",
+          "tableType": "traces"
         }
       ]
     }
@@ -322,5 +307,5 @@
   "timezone": "browser",
   "title": "Sir Curty — Links",
   "uid": "sircurty-links",
-  "version": 1
+  "version": 3
 }

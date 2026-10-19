@@ -37,3 +37,11 @@ patches:
         namespace: observability
       spec:
         replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: prometheus
+        namespace: observability
+      spec:
+        replicas: 1

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: observability
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: sircurty-observability
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets:
+              - localhost:9090
+
+      # The collector exposes its internal metrics on :8888. Scraping it is what
+      # powers the exporter/spans-per-second panels and the receiver health check.
+      - job_name: otel-collector
+        static_configs:
+          - targets:
+              - otel-collector.observability.svc.cluster.local:8888
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: "otelcol_.*"
+            action: keep
