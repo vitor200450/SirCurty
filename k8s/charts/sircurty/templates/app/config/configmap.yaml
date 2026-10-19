@@ -15,6 +15,12 @@ data:
   # API runtime config
   NODE_ENV: "production"
   PORT: "3000"
+  # Same-origin through the ingress, but CORS must still accept the public origin
+  ALLOWED_ORIGINS: "http://{{ .Values.hosts.app }}"
+  # One hop (ingress-nginx) in front of the API: real client IP for throttling/click stats
+  TRUST_PROXY: "1"
+  # Where API-side redirects (/s/:code fallbacks) send the browser
+  FRONTEND_BASE_URL: "http://{{ .Values.hosts.app }}"
   OTEL_SERVICE_NAME: "sircurty-api"
   OTEL_DEPLOYMENT_ENV: "{{ .Values.environment }}"
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability.svc.cluster.local:4317"
