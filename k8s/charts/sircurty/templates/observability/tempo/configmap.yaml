@@ -61,10 +61,9 @@ data:
           wait: 10s
           max_items: 10000
         span_metrics:
+          # service, span_name and status_code are intrinsic labels already;
+          # repeating them here makes Tempo drop the service label.
           dimensions:
-            - service
-            - span_name
-            - status_code
             - link.code
             - link.target_domain
 
