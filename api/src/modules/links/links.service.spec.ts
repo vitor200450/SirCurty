@@ -13,7 +13,7 @@ import { UpdateLinkDto } from './dto/update-link.dto.js';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
-const OWNER = 'a'.repeat(64); // valid 64-char ownerAnonId
+const OWNER = { anonId: 'a'.repeat(64) }; // valid 64-char ownerAnonId
 const OTHER_OWNER = 'b'.repeat(64);
 const BASE_URL = 'http://localhost:3000';
 
@@ -37,7 +37,7 @@ function makeLink(
     id: 1,
     slug: 'abc123def456',
     originalUrl: 'https://example.com',
-    ownerAnonId: OWNER,
+    ownerAnonId: OWNER.anonId,
     ownerUserId: null,
     passwordHash: null,
     isSingleUse: false,
@@ -100,7 +100,7 @@ describe('LinksService.create', () => {
     expect(prisma.link.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          ownerAnonId: OWNER,
+          ownerAnonId: OWNER.anonId,
           originalUrl: 'https://example.com',
           status: LinkStatus.ACTIVE,
         }),
@@ -449,7 +449,7 @@ describe('LinksService.findAll', () => {
 
     expect(prisma.link.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ ownerAnonId: OWNER }),
+        where: expect.objectContaining({ ownerAnonId: OWNER.anonId }),
       }),
     );
     expect(result).toHaveLength(2);

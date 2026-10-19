@@ -32,6 +32,25 @@ import { UnlockLinkResponseDto } from './dto/unlock-link.dto.js';
 const BCRYPT_ROUNDS = 12;
 const BCRYPT_MAX_PASSWORD_BYTES = 72;
 
+export type LinkOwner = { userId: number } | { anonId: string };
+
+function ownerFields(owner: LinkOwner): {
+  ownerUserId: number | null;
+  ownerAnonId: string | null;
+} {
+  if ('userId' in owner) {
+    return {
+      ownerUserId: owner.userId,
+      ownerAnonId: null,
+    };
+  }
+
+  return {
+    ownerUserId: null,
+    ownerAnonId: owner.anonId,
+  };
+}
+
 @Injectable()
 export class LinksService {
   private readonly logger = new Logger(LinksService.name);
@@ -58,6 +77,14 @@ export class LinksService {
 
     if (!link || link.status === LinkStatus.DELETED) {
       throw new NotFoundException('Link não encontrado.');
+    }
+
+    if (link.status === LinkStatus.DISABLED) {
+      throw new GoneException('Este link está desativado.');
+    }
+
+    if (link.expiresAt && link.expiresAt <= new Date()) {
+      throw new GoneException('Este link expirou.');
     }
 
     const dto = new LinkPreviewDto();
@@ -153,7 +180,7 @@ export class LinksService {
 
   async create(
     dto: CreateLinkDto,
-    ownerAnonId: string,
+    owner: LinkOwner,
   ): Promise<CreateLinkResponseDto> {
     if (
       typeof dto.password === 'string' &&
@@ -190,7 +217,7 @@ export class LinksService {
           data: {
             slug,
             originalUrl: dto.url,
-            ownerAnonId,
+            ...ownerFields(owner),
             isSingleUse: dto.singleUse ?? false,
             expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
             passwordHash,
@@ -218,7 +245,7 @@ export class LinksService {
             data: {
               slug: candidateSlug,
               originalUrl: dto.url,
-              ownerAnonId,
+              ...ownerFields(owner),
               isSingleUse: dto.singleUse ?? false,
               expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
               passwordHash,
@@ -348,10 +375,10 @@ export class LinksService {
 
   // ── Listagem ───────────────────────────────────────────────────────────
 
-  async findAll(ownerAnonId: string): Promise<LinkResponseDto[]> {
+  async findAll(owner: LinkOwner): Promise<LinkResponseDto[]> {
     const links = await this.prisma.link.findMany({
       where: {
-        ownerAnonId,
+        ...ownerFields(owner),
         status: { not: LinkStatus.DELETED },
       },
       orderBy: { createdAt: 'desc' },
@@ -362,7 +389,7 @@ export class LinksService {
 
   // ── Buscar um link ─────────────────────────────────────────────────────
 
-  async findOne(code: string, ownerAnonId: string): Promise<LinkResponseDto> {
+  async findOne(code: string, owner: LinkOwner): Promise<LinkResponseDto> {
     const link = await this.prisma.link.findUnique({
       where: { slug: code },
     });
@@ -371,7 +398,7 @@ export class LinksService {
       throw new NotFoundException('Link não encontrado.');
     }
 
-    this.assertOwner(link.ownerAnonId, ownerAnonId);
+    this.assertOwner(link.ownerUserId, link.ownerAnonId, owner);
 
     return LinkResponseDto.from(link);
   }
@@ -381,7 +408,7 @@ export class LinksService {
   async update(
     code: string,
     dto: UpdateLinkDto,
-    ownerAnonId: string,
+    owner: LinkOwner,
   ): Promise<LinkResponseDto> {
     const link = await this.prisma.link.findUnique({
       where: { slug: code },
@@ -391,7 +418,7 @@ export class LinksService {
       throw new NotFoundException('Link não encontrado.');
     }
 
-    this.assertOwner(link.ownerAnonId, ownerAnonId);
+    this.assertOwner(link.ownerUserId, link.ownerAnonId, owner);
 
     if (dto.expiresAt !== undefined && dto.expiresAt !== null) {
       const expiryDate = new Date(dto.expiresAt);
@@ -426,7 +453,7 @@ export class LinksService {
 
   // ── Exclusão lógica ────────────────────────────────────────────────────
 
-  async remove(code: string, ownerAnonId: string): Promise<void> {
+  async remove(code: string, owner: LinkOwner): Promise<void> {
     const link = await this.prisma.link.findUnique({
       where: { slug: code },
     });
@@ -435,7 +462,7 @@ export class LinksService {
       throw new NotFoundException('Link não encontrado.');
     }
 
-    this.assertOwner(link.ownerAnonId, ownerAnonId);
+    this.assertOwner(link.ownerUserId, link.ownerAnonId, owner);
 
     await this.prisma.link.update({
       where: { slug: code },
@@ -501,10 +528,19 @@ export class LinksService {
    * Retorna 404 para não revelar links de outros proprietários.
    */
   private assertOwner(
+    linkOwnerUserId: number | null,
     linkOwnerAnonId: string | null,
-    requestOwnerAnonId: string,
+    owner: LinkOwner,
   ): void {
-    if (linkOwnerAnonId !== requestOwnerAnonId) {
+    if ('userId' in owner) {
+      if (linkOwnerUserId !== owner.userId) {
+        throw new NotFoundException('Link não encontrado.');
+      }
+
+      return;
+    }
+
+    if (linkOwnerUserId !== null || linkOwnerAnonId !== owner.anonId) {
       throw new NotFoundException('Link não encontrado.');
     }
   }

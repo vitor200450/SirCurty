@@ -1,4 +1,5 @@
 import { APP_GUARD } from '@nestjs/core';
+import { SessionService } from '../auth/session.service';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -56,6 +57,12 @@ describe('Throttler integration — unlock endpoint (limit: 10/min)', () => {
         {
           provide: ClicksService,
           useValue: { record: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: SessionService,
+          useValue: {
+            validateSession: jest.fn().mockResolvedValue(null),
+          },
         },
       ],
     }).compile();
@@ -126,6 +133,12 @@ describe('Throttler integration — default limit on preview (limit: 5/min)', ()
           provide: ClicksService,
           useValue: { record: jest.fn().mockResolvedValue(undefined) },
         },
+        {
+          provide: SessionService,
+          useValue: {
+            validateSession: jest.fn().mockResolvedValue(null),
+          },
+        },
       ],
     }).compile();
 
@@ -139,16 +152,18 @@ describe('Throttler integration — default limit on preview (limit: 5/min)', ()
 
   it('returns 200 for preview requests within the default limit', async () => {
     for (let i = 0; i < 5; i++) {
-      const res = await request(app.getHttpServer())
-        .get('/links/test-code/preview');
+      const res = await request(app.getHttpServer()).get(
+        '/links/test-code/preview',
+      );
 
       expect(res.status).toBe(200);
     }
   });
 
   it('returns 429 when the default throttler limit is exceeded', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/links/test-code/preview');
+    const res = await request(app.getHttpServer()).get(
+      '/links/test-code/preview',
+    );
 
     expect(res.status).toBe(429);
   });
@@ -172,6 +187,12 @@ describe('Throttler integration — health endpoints are NOT throttled', () => {
           provide: PrismaService,
           useValue: {
             $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+          },
+        },
+        {
+          provide: SessionService,
+          useValue: {
+            validateSession: jest.fn().mockResolvedValue(null),
           },
         },
       ],
@@ -242,6 +263,12 @@ describe('Throttler integration — unlock throttler does NOT affect non-unlock 
           provide: ClicksService,
           useValue: { record: jest.fn().mockResolvedValue(undefined) },
         },
+        {
+          provide: SessionService,
+          useValue: {
+            validateSession: jest.fn().mockResolvedValue(null),
+          },
+        },
       ],
     }).compile();
 
@@ -259,8 +286,9 @@ describe('Throttler integration — unlock throttler does NOT affect non-unlock 
     // All 15 should succeed because only the "default" throttler (100/min)
     // applies to non-unlock routes.
     for (let i = 0; i < 15; i++) {
-      const res = await request(app.getHttpServer())
-        .get('/links/test-code/preview');
+      const res = await request(app.getHttpServer()).get(
+        '/links/test-code/preview',
+      );
 
       expect(res.status).toBe(200);
     }

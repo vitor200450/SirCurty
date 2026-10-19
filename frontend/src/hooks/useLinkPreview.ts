@@ -32,6 +32,8 @@ function getUnavailableReason(message: string): BlockReason | null {
     normalized.includes("expired") ||
     normalized.includes("expirado") ||
     normalized.includes("expirada") ||
+    normalized.includes("expirou") ||
+    normalized.includes("expira") ||
     normalized.includes("expiry")
   ) {
     return "expirado";

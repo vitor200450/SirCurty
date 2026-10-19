@@ -58,23 +58,17 @@ describe('UpdateLinkDto — expiresAt field', () => {
     const errors = await validateDto({
       expiresAt: '2099-12-31T00:00:00.000Z',
     });
-    expect(
-      errors.filter((e) => e.property === 'expiresAt'),
-    ).toHaveLength(0);
+    expect(errors.filter((e) => e.property === 'expiresAt')).toHaveLength(0);
   });
 
   it('accepts null — clears the expiry', async () => {
     const errors = await validateDto({ expiresAt: null });
-    expect(
-      errors.filter((e) => e.property === 'expiresAt'),
-    ).toHaveLength(0);
+    expect(errors.filter((e) => e.property === 'expiresAt')).toHaveLength(0);
   });
 
   it('accepts omitted expiresAt', async () => {
     const errors = await validateDto({});
-    expect(
-      errors.filter((e) => e.property === 'expiresAt'),
-    ).toHaveLength(0);
+    expect(errors.filter((e) => e.property === 'expiresAt')).toHaveLength(0);
   });
 
   it('rejects a non-date string', async () => {
@@ -90,16 +84,12 @@ describe('UpdateLinkDto — expiresAt field', () => {
 describe('UpdateLinkDto — singleUse field', () => {
   it('accepts true', async () => {
     const errors = await validateDto({ singleUse: true });
-    expect(
-      errors.filter((e) => e.property === 'singleUse'),
-    ).toHaveLength(0);
+    expect(errors.filter((e) => e.property === 'singleUse')).toHaveLength(0);
   });
 
   it('accepts false', async () => {
     const errors = await validateDto({ singleUse: false });
-    expect(
-      errors.filter((e) => e.property === 'singleUse'),
-    ).toHaveLength(0);
+    expect(errors.filter((e) => e.property === 'singleUse')).toHaveLength(0);
   });
 
   it('rejects null — singleUse must be omitted to leave unchanged', async () => {
@@ -111,9 +101,7 @@ describe('UpdateLinkDto — singleUse field', () => {
 
   it('accepts omitted singleUse', async () => {
     const errors = await validateDto({});
-    expect(
-      errors.filter((e) => e.property === 'singleUse'),
-    ).toHaveLength(0);
+    expect(errors.filter((e) => e.property === 'singleUse')).toHaveLength(0);
   });
 });
 

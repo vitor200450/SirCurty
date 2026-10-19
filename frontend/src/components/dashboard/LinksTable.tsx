@@ -196,7 +196,7 @@ export default function LinksTable({
                             : "hover:bg-red-200 text-[#8C7A5B] hover:text-red-600"
                         }`}
                       >
-                        🔥
+                        🗑️
                       </button>
                     </div>
                   </td>

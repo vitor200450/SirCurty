@@ -1,3 +1,7 @@
+import { useState } from "react";
+import { GoogleLogin } from "@react-oauth/google";
+import { useAuth } from "../features/auth/useAuth";
+
 interface NavbarProps {
   isDarkMode: boolean;
   toggleTheme: () => void;
@@ -77,32 +81,67 @@ function ThemeButton({ isDarkMode, onToggle }: ThemeButtonProps) {
 }
 
 function AccountActions({ isDarkMode }: Pick<NavbarProps, "isDarkMode">) {
-  return (
-    <div className="flex items-center gap-4">
-      <button
-        type="button"
-        className={`font-medium transition-colors ${
-          isDarkMode
-            ? "text-slate-300 hover:text-white"
-            : "text-slate-700 hover:text-[#3B2A6B]"
-        }`}
-      >
-        Entrar
-      </button>
+  const { user, loading, error, loginWithGoogle, logout, clearError } =
+    useAuth();
 
-      <button
-        type="button"
-        className={`px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 shadow-lg transition-all cursor-pointer ${
-          isDarkMode
-            ? "bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/30"
-            : "bg-[#3B2A6B] hover:bg-[#2A1D52] text-white shadow-indigo-900/20"
-        }`}
-      >
-        <span className="text-yellow-400" aria-hidden="true">
-          👑
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  if (loading) {
+    return <div className="h-10 w-32" aria-label="Carregando autenticação" />;
+  }
+
+  if (user) {
+    return (
+      <div className="flex items-center gap-3">
+        <span className="max-w-40 truncate text-sm" title={user.email}>
+          {user.name || user.email}
         </span>
-        Criar conta
-      </button>
+
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="rounded-lg border border-current px-3 py-2 text-sm"
+        >
+          Sair
+        </button>
+
+        {error && (
+          <span role="alert" className="text-sm text-red-500">
+            {error}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <GoogleLogin
+        theme={isDarkMode ? "filled_black" : "outline"}
+        size="large"
+        shape="pill"
+        text="signin_with"
+        onSuccess={(credentialResponse) => {
+          setGoogleError(null);
+          clearError();
+
+          if (!credentialResponse.credential) {
+            setGoogleError("O Google não retornou um ID token.");
+            return;
+          }
+
+          void loginWithGoogle(credentialResponse.credential);
+        }}
+        onError={() => {
+          setGoogleError("Não foi possível iniciar o login com Google.");
+        }}
+      />
+
+      {(error || googleError) && (
+        <span role="alert" className="max-w-64 text-sm text-red-500">
+          {error || googleError}
+        </span>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import LinksTable from "./dashboard/LinksTable";
 import DashboardOverview from "./dashboard/DashboardOverview";
 import { useDashboard } from "../hooks/useDashboard";
 import type { LinkResponse, UpdateLinkBody } from "../types/link";
+import ConfirmModal from "./dashboard/ConfirmModal";
 
 interface DashboardProps {
   isDarkMode: boolean;
@@ -13,6 +14,7 @@ interface DashboardProps {
 export default function Dashboard({ isDarkMode }: DashboardProps) {
   const [editingLink, setEditingLink] = useState<LinkResponse | null>(null);
   const [statsSlug, setStatsSlug] = useState<string | null>(null);
+  const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
 
   const {
     links,
@@ -26,13 +28,17 @@ export default function Dashboard({ isDarkMode }: DashboardProps) {
   } = useDashboard();
 
   function handleDelete(slug: string) {
-    const confirmed = window.confirm(
-      `🔥 Tens a certeza que queres queimar o pergaminho "${slug}"?`,
-    );
+    setDeletingSlug(slug);
+  }
 
-    if (confirmed) {
-      deleteLink(slug);
-    }
+  function handleConfirmDelete() {
+    if (!deletingSlug || isDeleting) return;
+
+    deleteLink(deletingSlug, {
+      onSuccess: () => {
+        setDeletingSlug(null);
+      },
+    });
   }
 
   function handleSave(slug: string, body: UpdateLinkBody) {
@@ -71,6 +77,19 @@ export default function Dashboard({ isDarkMode }: DashboardProps) {
           slug={statsSlug}
           isDarkMode={isDarkMode}
           onClose={() => setStatsSlug(null)}
+        />
+      )}
+
+      {deletingSlug !== null && (
+        <ConfirmModal
+          isDarkMode={isDarkMode}
+          isLoading={isDeleting}
+          title="Excluir este link?"
+          message="Esta ação é permanente. O link deixará de estar disponível para acesso."
+          itemName={deletingSlug}
+          confirmLabel="Excluir link"
+          onClose={() => setDeletingSlug(null)}
+          onConfirm={handleConfirmDelete}
         />
       )}
 
