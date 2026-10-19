@@ -26,3 +26,6 @@ api/prisma/*.db-journal
 # Local cookies and session data
 cookies.txt
 **/cookies.txt
+
+# Windows/WSL download metadata
+*:Zone.Identifier
