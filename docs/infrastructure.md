@@ -126,10 +126,16 @@ pods novos (rolling update) → app atualizado; Grafana mostrando saúde e trace
 
 ## Limitações conhecidas
 
-- Nada foi executado ainda em cluster real nem no GitHub Actions; `api/` e `frontend/` ainda não
-  têm código, então CI/CD e Dockerfiles só foram validados sintaticamente.
-- Os workflows assumem `package-lock.json`, scripts `build`/`test`/`lint` e `prisma/` em `api/`.
+- O chart completo (app + observabilidade) foi validado no Docker Desktop com imagens locais
+  (`--set api.image.tag=local --set frontend.image.tag=local`); o sync do ArgoCD e os workflows
+  só rodam de verdade depois que o chart chegar à `develop`.
+- O npm 11.19+ bloqueia install scripts de dependências: `api/package.json` aprova os necessários em
+  `allowScripts` (sem isso o `bcrypt` fica sem binário nativo e a API não sobe).
+- Scripts `.sh` precisam de LF (`.gitattributes`); com CRLF o entrypoint do frontend não executa.
+- O ingress manda `/s/*` para a SPA (interstitial); ao fim da contagem a SPA chama
+  `/api/redirect/:code`, o mesmo handler de `/s/:code` da API, que registra o clique e consome
+  links de uso único.
 - O bump de tag faz push direto em `develop`; se a branch for protegida, liberar o
   `github-actions[bot]`.
 - Os pacotes do GHCR precisam ser públicos ou ser criado um `imagePullSecret`.
-- O prefixo global `/api` da API deve ser confirmado (o health fica em `/health/*`, sem prefixo).
+- A API usa o prefixo global `/api`; o health fica em `/health/*`, sem prefixo.

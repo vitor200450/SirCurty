@@ -92,8 +92,19 @@ Para testar uma imagem local: `--set api.image.tag=local`.
 - O bump faz push direto em `develop`: se a branch ficar protegida, liberar o `github-actions[bot]`.
 - Migrations: o `initContainer` `migrate` da API roda `prisma migrate deploy --config prisma7.config.ts` com a mesma imagem.
 
+## Testar com imagens locais (sem GHCR)
+
+O Docker Desktop compartilha o image store com o node do Kubernetes, então imagens buildadas
+localmente ficam visíveis para o cluster sem `docker push`:
+
+```bash
+docker build -t ghcr.io/vitor200450/sircurty-api:local api
+docker build -t ghcr.io/vitor200450/sircurty-frontend:local frontend
+helm upgrade --install sircurty k8s/charts/sircurty -n default \
+  --set api.image.tag=local --set frontend.image.tag=local
+```
+
 ## Pendências
 
-- O frontend ainda não tem código-fonte no repositório, então a imagem `sircurty-frontend` não pode ser construída.
-- O chart foi instalado e validado no Docker Desktop (API, Postgres, Grafana, Tempo e OTel `Running`); o sync real do ArgoCD e os workflows no GitHub Actions ainda não foram executados.
+- O sync real do ArgoCD e os workflows no GitHub Actions dependem do chart, do `cd.yml` e dos Dockerfiles chegarem à `develop`.
 - Confirmar o GHCR (pacotes públicos ou `imagePullSecret`).
