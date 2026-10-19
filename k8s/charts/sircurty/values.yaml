@@ -1,20 +1,17 @@
 # Single environment (dev, Docker Desktop). The CD pipeline bumps the two image tags below.
 environment: dev
 ingressClassName: nginx
-
 hosts:
   app: sircurty.local
   grafana: grafana.sircurty.local
   otel: otel.sircurty.local
-
 api:
   replicas: 1
   image:
     repository: ghcr.io/vitor200450/sircurty-api
-    tag: latest
-
+    tag: 69a192ac925cdc441d5dab9280974baf44e7ad68
 frontend:
   replicas: 1
   image:
     repository: ghcr.io/vitor200450/sircurty-frontend
-    tag: latest
+    tag: 69a192ac925cdc441d5dab9280974baf44e7ad68
