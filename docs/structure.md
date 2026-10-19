@@ -118,9 +118,7 @@ docs/
 
 ```text
 scripts/
-  seed-dev.sh              # popular links de exemplo
-  generate-clicks.sh       # carga de cliques para demo
-  create-topic.sh          # (opcional) utilitários locais
+  reset-cluster.ps1        # recria o cluster local do zero
 ```
 
 ## Princípios da estrutura
