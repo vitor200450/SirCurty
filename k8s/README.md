@@ -10,7 +10,7 @@ k8s/
     dashboards/*.json      # dashboards do Grafana, carregados com .Files.Get
     templates/
       app/                 # namespace `sircurty`: frontend, api, postgres, config, ingress
-      observability/       # namespace `observability`: OTel Collector, Tempo, Grafana
+      observability/       # namespace `observability`: OTel Collector, Tempo, Prometheus, Grafana
   argocd/application.yaml
   secret.example.yaml      # referencia do Secret (nao faz parte do chart)
 ```

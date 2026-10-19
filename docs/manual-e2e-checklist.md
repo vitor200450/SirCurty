@@ -21,7 +21,7 @@ Marque cada item; se algum falhar, a coluna "Se falhar" aponta o primeiro lugar 
 | Passo | Esperado | Se falhar |
 |---|---|---|
 | `kubectl get pods -n sircurty` | `postgres-0`, `api-*`, `frontend-*` todos `1/1 Running` | `kubectl describe pod` / `kubectl logs` |
-| `kubectl get pods -n observability` | `otel-collector`, `tempo`, `grafana` `1/1 Running` | idem |
+| `kubectl get pods -n observability` | `otel-collector`, `tempo`, `prometheus`, `grafana` `1/1 Running` | idem |
 | `kubectl logs deploy/api -n sircurty -c migrate` | `prisma migrate deploy` sem erro (migrations aplicadas) | `DATABASE_URL` no Secret |
 | `kubectl get ingress -A` | `sircurty.local`, `grafana.sircurty.local`, `otel.sircurty.local` | ingress-nginx instalado? |
 
@@ -77,6 +77,8 @@ curl -si http://sircurty.local/s/<code> | head -1               # → 200 (HTML 
 ## 6. Observabilidade (`http://grafana.sircurty.local`)
 
 - [ ] Grafana abre com os dashboards provisionados (overview, links, traces).
+- [ ] Após ~1 min de tráfego, os painéis de cliques/links criados/top links mostram números (PromQL sobre
+      `traces_spanmetrics_calls_total` no Prometheus) e o Service Graph mostra `user → sircurty-api`.
 - [ ] Explore → Tempo: depois de criar/abrir links, aparecem traces `sircurty-api` com spans HTTP e `pg`.
 - [ ] Trace FE→API: requisições do navegador para `otel.sircurty.local/v1/traces` retornam 2xx e o trace
       do frontend (`sircurty-frontend`) compartilha o trace id da chamada à API (`traceparent`).

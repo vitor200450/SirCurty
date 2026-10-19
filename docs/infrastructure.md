@@ -19,7 +19,7 @@ dev -> PR -> develop
                                       ▼
                       Cluster Kubernetes (Docker Desktop)
                       ├─ ns sircurty:       frontend, api, postgres, ingress
-                      └─ ns observability:  otel-collector, tempo, grafana
+                      └─ ns observability:  otel-collector, tempo, prometheus, grafana
 ```
 
 O Git é a fonte da verdade: o ArgoCD só aplica o que está commitado. Para mudar o que roda no
@@ -45,9 +45,10 @@ Todos os containers têm requests/limits de CPU e memória.
 
 ### Namespace `observability` (`k8s/charts/sircurty/templates/observability/`)
 
-OTel Collector, Tempo e Grafana (dashboards versionados em JSON). É a parte do Matheus; o chart
+OTel Collector, Tempo, Prometheus e Grafana (dashboards versionados em JSON). É a parte do Matheus; o chart
 apenas a inclui junto com o app (os dashboards entram via `.Files.Get`, e um checksum no Deployment reinicia o Grafana quando mudam). A API e o browser enviam traces ao Collector, que os guarda no
-Tempo; o Grafana lê o Tempo. Ver `docs/observability.md`.
+Tempo; o metrics-generator do Tempo envia span metrics e service graph ao Prometheus (remote write),
+que alimenta os painéis PromQL; o Grafana lê os dois. Ver `docs/observability.md`.
 
 ### Values (`k8s/charts/sircurty/values.yaml`)
 
