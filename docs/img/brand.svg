@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="96" viewBox="0 0 420 96" role="img" aria-label="Sir Curty - O encurtador de links">
+  <rect width="420" height="96" rx="16" fill="#F4F1FF"/>
+  <path d="M24 16h40a4 4 0 0 1 4 4v34a20 20 0 0 1-20 20h-8a20 20 0 0 1-20-20V20a4 4 0 0 1 0 0z" fill="#3B2A6B"/>
+  <path d="M44 28l14 5v10c0 9-6 15-14 18-8-3-14-9-14-18V33z" fill="#EAB308"/>
+  <path d="M44 33l9 3v7c0 6-4 10-9 12z" fill="#CA8A04"/>
+  <text x="88" y="52" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="38" font-weight="700" fill="#1F1B38">Sir Curty</text>
+  <text x="90" y="74" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" letter-spacing="2.4" fill="#64748B">O ENCURTADOR DE LINKS</text>
+</svg>
