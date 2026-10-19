@@ -1,5 +1,53 @@
 import type { LinkResponse } from "../../types/link";
 
+type StatusTone = "consumed" | "expired" | "active" | "inactive";
+
+const STATUS_CLASSES: Record<StatusTone, { dark: string; light: string }> = {
+  consumed: {
+    dark: "bg-purple-900/40 text-purple-300",
+    light: "bg-purple-100 text-purple-700",
+  },
+  expired: {
+    dark: "bg-amber-900/40 text-amber-300",
+    light: "bg-amber-100 text-amber-700",
+  },
+  active: {
+    dark: "bg-green-900/40 text-green-400",
+    light: "bg-green-100 text-green-700",
+  },
+  inactive: {
+    dark: "bg-red-900/40 text-red-400",
+    light: "bg-red-100 text-red-700",
+  },
+};
+
+// The API keeps status ACTIVE after a single-use redeem or once expiresAt passes,
+// so the dashboard derives the effective state here.
+function getStatus(link: LinkResponse): { tone: StatusTone; label: string } {
+  if (link.isConsumed) {
+    return { tone: "consumed", label: "Consumido" };
+  }
+
+  const isExpired =
+    link.status === "EXPIRED" ||
+    (link.status === "ACTIVE" &&
+      link.expiresAt !== null &&
+      new Date(link.expiresAt).getTime() <= Date.now());
+
+  if (isExpired) {
+    return { tone: "expired", label: "Expirado" };
+  }
+
+  if (link.status === "ACTIVE") {
+    return { tone: "active", label: "Ativo" };
+  }
+
+  return {
+    tone: "inactive",
+    label: link.status === "DISABLED" ? "Inativo" : link.status,
+  };
+}
+
 interface LinksTableProps {
   links: LinkResponse[];
   isLoading: boolean;
@@ -133,20 +181,12 @@ export default function LinksTable({
                   <td className="py-3 text-center">
                     <span
                       className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        link.status === "ACTIVE"
-                          ? isDarkMode
-                            ? "bg-green-900/40 text-green-400"
-                            : "bg-green-100 text-green-700"
-                          : isDarkMode
-                            ? "bg-red-900/40 text-red-400"
-                            : "bg-red-100 text-red-700"
+                        STATUS_CLASSES[getStatus(link).tone][
+                          isDarkMode ? "dark" : "light"
+                        ]
                       }`}
                     >
-                      {link.status === "ACTIVE"
-                        ? "Ativo"
-                        : link.status === "DISABLED"
-                          ? "Inativo"
-                          : link.status}
+                      {getStatus(link).label}
                     </span>
                   </td>
 

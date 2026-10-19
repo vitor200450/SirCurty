@@ -5,6 +5,7 @@ export interface LinkResponse {
   slug: string;
   originalUrl: string;
   isSingleUse: boolean;
+  isConsumed: boolean;
   expiresAt: string | null;
   status: LinkStatus;
   createdAt: string;

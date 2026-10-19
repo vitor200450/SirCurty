@@ -489,6 +489,19 @@ describe('LinksService.findAll', () => {
     expect(link.hasPassword).toBe(true);
   });
 
+  it('flags a redeemed single-use link as consumed', async () => {
+    const { service, prisma } = makeService();
+    prisma.link.findMany.mockResolvedValue([
+      makeLink({ isSingleUse: true, usedAt: new Date() }),
+      makeLink({ id: 2, slug: 'xyz', isSingleUse: true, usedAt: null }),
+      makeLink({ id: 3, slug: 'old', isSingleUse: false, usedAt: new Date() }),
+    ]);
+
+    const result = await service.findAll(OWNER);
+
+    expect(result.map((link) => link.isConsumed)).toEqual([true, false, false]);
+  });
+
   it('returns empty array when owner has no links', async () => {
     const { service, prisma } = makeService();
     prisma.link.findMany.mockResolvedValue([]);
