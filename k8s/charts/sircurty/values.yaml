@@ -9,9 +9,9 @@ api:
   replicas: 1
   image:
     repository: ghcr.io/vitor200450/sircurty-api
-    tag: 341d4e897dfbd71c3ff67a122f8d260ab7967e7e
+    tag: b1e44f7db3bb125b50a22525a9ee7a9a4f4af5d3
 frontend:
   replicas: 1
   image:
     repository: ghcr.io/vitor200450/sircurty-frontend
-    tag: 341d4e897dfbd71c3ff67a122f8d260ab7967e7e
+    tag: b1e44f7db3bb125b50a22525a9ee7a9a4f4af5d3
