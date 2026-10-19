@@ -86,7 +86,10 @@ describe('HttpExceptionFilter', () => {
       host,
     );
     expect(captureResponse(host)).toHaveBeenCalledWith(400);
-    expect(getBody(host).message).toEqual(errors);
+    expect(getBody(host).message).toEqual([
+      'url deve ser um endereço URL válido',
+      'url não pode ficar vazio',
+    ]);
   });
 
   // ── HttpException — object message as string ──────────────────────────
@@ -127,7 +130,7 @@ describe('HttpExceptionFilter', () => {
     );
     filter.catch(err, host);
     expect(captureResponse(host)).toHaveBeenCalledWith(409);
-    expect(getBody(host).message).toBe('Resource already exists');
+    expect(getBody(host).message).toBe('Este recurso já existe.');
   });
 
   // ── Prisma P2025 — record not found ───────────────────────────────────
@@ -141,7 +144,7 @@ describe('HttpExceptionFilter', () => {
     });
     filter.catch(err, host);
     expect(captureResponse(host)).toHaveBeenCalledWith(404);
-    expect(getBody(host).message).toBe('Resource not found');
+    expect(getBody(host).message).toBe('Recurso não encontrado.');
   });
 
   // ── Prisma P2003 — foreign key ────────────────────────────────────────
@@ -166,7 +169,7 @@ describe('HttpExceptionFilter', () => {
     );
     filter.catch(err, host);
     expect(captureResponse(host)).toHaveBeenCalledWith(500);
-    expect(getBody(host).message).toBe('Internal server error');
+    expect(getBody(host).message).toBe('Ocorreu um erro interno no servidor.');
   });
 
   // ── PrismaClientValidationError → 500, no detail ─────────────────────
@@ -179,7 +182,7 @@ describe('HttpExceptionFilter', () => {
     );
     filter.catch(err, host);
     expect(captureResponse(host)).toHaveBeenCalledWith(500);
-    expect(getBody(host).message).toBe('Internal server error');
+    expect(getBody(host).message).toBe('Ocorreu um erro interno no servidor.');
     // Must not expose SQL or internal detail
     expect(JSON.stringify(getBody(host))).not.toContain('SELECT');
   });
@@ -194,7 +197,9 @@ describe('HttpExceptionFilter', () => {
     );
     filter.catch(err, host);
     expect(captureResponse(host)).toHaveBeenCalledWith(503);
-    expect(getBody(host).message).toBe('Service temporarily unavailable');
+    expect(getBody(host).message).toBe(
+      'Serviço temporariamente indisponível. Tente novamente mais tarde.',
+    );
   });
 
   // ── Unknown Error → 500, no stack trace ──────────────────────────────
@@ -204,7 +209,7 @@ describe('HttpExceptionFilter', () => {
     filter.catch(new Error('internal crash'), host);
     expect(captureResponse(host)).toHaveBeenCalledWith(500);
     const body = getBody(host);
-    expect(body.message).toBe('Internal server error');
+    expect(body.message).toBe('Ocorreu um erro interno no servidor.');
     expect(JSON.stringify(body)).not.toContain('internal crash');
   });
 
@@ -212,7 +217,7 @@ describe('HttpExceptionFilter', () => {
     const host = makeHost();
     filter.catch('something weird', host);
     expect(captureResponse(host)).toHaveBeenCalledWith(500);
-    expect(getBody(host).message).toBe('Internal server error');
+    expect(getBody(host).message).toBe('Ocorreu um erro interno no servidor.');
   });
 
   // ── Logger called for server errors ──────────────────────────────────
