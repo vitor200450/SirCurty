@@ -47,12 +47,28 @@ data:
       trace_by_id:
         duration_slo: 5s
 
+    # Generates span metrics consumed by the Grafana dashboards and by the
+    # TraceQL queries that aggregate by service, span name or link attribute.
+    # service-graphs additionally powers the Grafana Service Graph panel.
     metrics_generator:
-      # disabled — no Prometheus in this setup
       storage:
         path: /var/tempo/generator/wal
+        remote_write:
+          - url: http://prometheus.observability.svc.cluster.local:9090/api/v1/write
+            remote_timeout: 10s
+      processor:
+        service_graphs:
+          wait: 10s
+          max_items: 10000
+        span_metrics:
+          dimensions:
+            - service
+            - span_name
+            - status_code
+            - link.code
+            - link.target_domain
 
     overrides:
       defaults:
         metrics_generator:
-          processors: []           # keep empty; no span-metrics without Prometheus
+          processors: [service-graphs, span-metrics]
