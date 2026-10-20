@@ -8,7 +8,8 @@ window.__APP_CONFIG__ = {
   API_URL: "${API_URL:-/api}",
   APP_ENV: "${APP_ENV:-production}",
   APP_BASE_URL: "${APP_BASE_URL:-}",
-  OTEL_ENDPOINT: "${OTEL_ENDPOINT:-}"
+  OTEL_ENDPOINT: "${OTEL_ENDPOINT:-}",
+  GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
 };
 EOF
 

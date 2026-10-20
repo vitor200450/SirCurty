@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: observability
+  labels:
+    app: grafana
+    app.kubernetes.io/part-of: sircurty-observability
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        access: proxy
+        url: http://tempo.observability.svc.cluster.local:3200
+        isDefault: true
+        editable: false
+        jsonData:
+          httpMethod: GET
+          tracesToLogsV2:
+            datasourceUid: ""
+          nodeGraph:
+            enabled: true
+          # Service Graph reads traces_service_graph_request_total from Prometheus.
+          serviceMap:
+            datasourceUid: prometheus
+          traceQuery:
+            timeShiftEnabled: true
+            spanStartTimeShift: "-1h"
+            spanEndTimeShift: "1h"
+          spanBar:
+            type: "None"
+          search:
+            hide: false
+          lokiSearch:
+            datasourceUid: ""
+
+      # Backs the TraceQL metric queries in the dashboards and the Service Graph.
+      # Tempo's metrics-generator remote-writes span metrics here.
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://prometheus.observability.svc.cluster.local:9090
+        isDefault: false
+        editable: false
+        jsonData:
+          httpMethod: GET
+          prometheusType: Prometheus
+          prometheusVersion: 2.54.1
+          timeInterval: 15s

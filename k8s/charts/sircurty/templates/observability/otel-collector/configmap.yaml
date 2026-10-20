@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: observability
+data:
+  config.yaml: |
+    extensions:
+      health_check:
+        endpoint: "0.0.0.0:13133"
+
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:4318"
+            # Allow CORS so the browser SDK can send directly to the collector
+            cors:
+              allowed_origins:
+                - "http://localhost"
+                - "http://sircurty.local"
+                - "http://*.sircurty.local"
+              allowed_headers:
+                - "*"
+
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 256
+        spike_limit_mib: 64
+      batch:
+        timeout: 5s
+        send_batch_size: 512
+      resource:
+        attributes:
+          - key: deployment.environment
+            value: "dev"
+            action: upsert
+
+    exporters:
+      otlp:
+        endpoint: "tempo.observability.svc.cluster.local:4317"
+        tls:
+          insecure: true
+      # Debug exporter — logs every span to collector stdout (useful during demo)
+      debug:
+        verbosity: basic
+
+    service:
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch, resource]
+          exporters: [otlp, debug]

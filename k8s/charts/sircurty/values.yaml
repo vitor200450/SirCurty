@@ -1,0 +1,20 @@
+# Single environment (dev, Docker Desktop). The CD pipeline bumps the two image tags below.
+environment: dev
+ingressClassName: nginx
+hosts:
+  # Canonical app host: Google OAuth only accepts http origins for localhost.
+  app: localhost
+  # Alias that keeps working through the same ingress.
+  appAlias: sircurty.local
+  grafana: grafana.sircurty.local
+  otel: otel.sircurty.local
+api:
+  replicas: 1
+  image:
+    repository: ghcr.io/vitor200450/sircurty-api
+    tag: cde7812e40e449fb09b98ddefeec83a66ae21e8d
+frontend:
+  replicas: 1
+  image:
+    repository: ghcr.io/vitor200450/sircurty-frontend
+    tag: cde7812e40e449fb09b98ddefeec83a66ae21e8d

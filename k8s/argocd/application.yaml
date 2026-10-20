@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sircurty-dev
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: sircurty
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/vitor200450/SirCurty
+    targetRevision: develop
+    path: k8s/charts/sircurty
+    helm:
+      releaseName: sircurty
+
+  destination:
+    server: https://kubernetes.default.svc
+    # namespace is set per-resource in the chart templates
+
+  syncPolicy:
+    automated:
+      prune: true        # remove resources deleted from git
+      selfHeal: true     # revert manual changes in the cluster
+    syncOptions:
+      - CreateNamespace=true        # creates namespaces if missing
+      - ServerSideApply=true        # handles large ConfigMaps (dashboard JSONs)
+    # O StatefulSet do postgres ganha campos do API server (volumeMode, status.phase)
+    # nos volumeClaimTemplates que não estão no chart, gerando diff permanente.
+    ignoreDifferences:
+      - group: apps
+        kind: StatefulSet
+        name: postgres
+        jqPathExpressions:
+          - .spec.volumeClaimTemplates[]?
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+
+  # Sync waves: observability comes up before the app so traces are captured from the start
+  # Wave assignments live in each resource via annotation:
+  # metadata.annotations: argocd.argoproj.io/sync-wave: "0"  (namespaces, config, observability)
+  # metadata.annotations: argocd.argoproj.io/sync-wave: "1"  (postgres)
+  # metadata.annotations: argocd.argoproj.io/sync-wave: "2"  (api)
+  # metadata.annotations: argocd.argoproj.io/sync-wave: "3"  (frontend)

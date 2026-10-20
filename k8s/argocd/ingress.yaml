@@ -1,0 +1,31 @@
+# Ingress para a interface web do ArgoCD (cluster local de demo).
+#
+# O argocd-server expõe HTTPS (TLS self-signed) na porta 443. Em vez de
+# desligar o TLS do ArgoCD (`server.insecure`), o NGINX fala HTTPS com o
+# backend via `backend-protocol: HTTPS`, então o ArgoCD enxerga uma conexão
+# segura e não redireciona a requisição. Assim a UI fica acessível em
+# http://argocd.sircurty.local sem reiniciar o argocd-server.
+#
+# Requer a linha abaixo no arquivo hosts da máquina:
+#   127.0.0.1 argocd.sircurty.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd
+  namespace: argocd
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: argocd.sircurty.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 443
